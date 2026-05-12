@@ -1,34 +1,40 @@
-import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
-import { styles } from "./styles";
+import AmountText from "@/app/components/common/AmountText";
+import Avatar from "@/app/components/common/Avatar";
+import { colors, radius, spacing } from "@/app/theme";
+import { mockTransactions, mockUser } from "@/app/utils/mockData";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Avatar, AmountText } from "@/app/components";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, radius, spacing } from "@/app/theme";
-import { mockUser, mockTransactions } from "@/app/mockData";
-import { ScrollView } from "react-native-reanimated/lib/typescript/Animated";
+import React from "react";
+import {
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HomeStackParamList } from "../../navigation/types";
 
 // Workaround para importar Platform nos styles
-import { Platform } from 'react-native';
+//import { Platform } from "react-native";
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
-const txIconMapping: Record<string, IoniconName> = {
+const txIconMap: Record<string, IoniconName> = {
   bank: "business-outline",
   cart: "cart-outline",
   car: "car-outline",
   tv: "tv-outline",
   pill: "medkit-outline",
   food: "fast-food-outline",
-  gift: "gift-outline",
-  travel: "airplane-outline",
   cash: "cash-outline",
+  gas: "flame-outline",
+  gift: "gift-outline",
   heart: "heart-outline",
-  gas: "gas-outline",
 };
 
 interface QuickAction {
@@ -36,38 +42,38 @@ interface QuickAction {
   icon: IoniconName;
   onPress: () => void;
   color: string;
-  route?: keyof HomeStackParamList;
+  route?: Extract<keyof HomeStackParamList, "HomeMain" | "Categories">;
 }
 
-const quickActions: QuickAction[] = [
+const QUICK_ACTIONS: QuickAction[] = [
   {
     label: "Transações",
     icon: "swap-horizontal-outline",
     onPress: () => {},
-    color: "#007AFF",
+    color: colors.blue,
   },
   {
     label: "Análises",
     icon: "pie-chart-outline",
     onPress: () => {},
-    color: "#007AFF",
+    color: colors.accent,
   },
   {
     label: "Categorias",
     icon: "grid-outline",
     onPress: () => {},
-    color: "#007AFF",
+    color: colors.purple,
     route: "Categories",
   },
   {
     label: "Saldo",
     icon: "wallet-outline",
     onPress: () => {},
-    color: "#007AFF",
+    color: colors.amber,
   },
 ];
 
-const HomeScreen: React.FC = () => {
+const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
   const recentTxs = mockTransactions.slice(0, 4);
@@ -242,7 +248,7 @@ const styles = StyleSheet.create({
   miniStats: { flexDirection: "row", gap: 12, marginTop: 20 },
   miniStat: {
     flex: 1,
-  
+  },
   miniLabelRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -298,6 +304,6 @@ const styles = StyleSheet.create({
 });
 
 // Workaround para importar Platform nos styles
-import { Platform } from "react-native";
+//import { Platform } from "react-native";
 
 export default HomeScreen;

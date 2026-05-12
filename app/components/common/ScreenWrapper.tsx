@@ -1,12 +1,12 @@
 // src/components/common/ScreenWrapper.tsx
-import { Colors } from "@theme/index";
+import { colors } from "@/app/theme";
 import React, { ReactNode } from "react";
 import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    View,
-    ViewStyle,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -39,7 +39,7 @@ export default function ScreenWrapper({
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={Colors.accent}
+                tintColor={colors.accent}
               />
             ) : undefined
           }
@@ -60,7 +60,7 @@ export default function ScreenWrapper({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.bg,
+    backgroundColor: colors.bg,
   },
   scroll: {
     flex: 1,

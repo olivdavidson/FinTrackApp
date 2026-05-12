@@ -34,6 +34,10 @@ export interface Account {
   iconBg: string;
 }
 
+export const formatCurrency = (amount: number): string => {
+  return `R$ ${Math.abs(amount).toFixed(2).replace('.', ',')}`;
+};
+
 export const mockTransactions: Transaction[] = [
   {
     id: "1",
@@ -215,6 +219,8 @@ export const mockCategories: Category[] = [
     budget: 150,
   },
 ];
+
+export const CATEGORIES = mockCategories;
 
 export const mockAccounts: Account[] = [
   {

@@ -5,10 +5,10 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 import { colors } from "../theme";
 import { MainTabParamList } from "./types";
 
-import AnalyticsScreen from "../screens/Analytics/AnalyticsScreen";
+import AnalyticsScreen from "../screens/Analytcs/AnalytcsScreen";
 import BalanceScreen from "../screens/Balance/BalanceScreen";
-import TransactionsScreen from "../screens/Transactions/TransactionsScreen";
-import HomeNavigator from "./HomeNavigator";
+import TransactionsScreen from "../screens/Transactions/TransacionsScreen";
+import HomeNavigator from "./HomeNavigation";
 import ProfileNavigator from "./ProfileNavigator";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();

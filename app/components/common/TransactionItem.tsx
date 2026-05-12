@@ -1,10 +1,9 @@
 // src/components/common/TransactionItem.tsx
-import { Colors, Radius, Spacing, Typography } from "@theme/index";
-import { CATEGORIES, formatCurrency } from "@utils/mockData";
+import { CATEGORIES, formatCurrency, Transaction } from "@/app/utils/mockData";
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
-import { Transaction } from "../../types";
+import { colors, radius, spacing } from "../../theme/index";
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -17,17 +16,22 @@ export default function TransactionItem({
   onPress,
   showCard = false,
 }: TransactionItemProps) {
-  const category = CATEGORIES[transaction.category];
+  const category =
+    CATEGORIES.find((c) => c.id === transaction.category) || CATEGORIES[0];
   const isIncome = transaction.type === "income";
 
   const content = (
     <View style={[styles.row, showCard && styles.card]}>
-      <View style={[styles.iconWrap, { backgroundColor: category.bgColor }]}>
-        <Icon name={category.icon} size={20} color={category.color} />
+      <View style={[styles.iconWrap, { backgroundColor: category.colorBg }]}>
+        <Ionicons
+          name={category.icon as any}
+          size={20}
+          color={category.color}
+        />
       </View>
       <View style={styles.info}>
-        <Text style={styles.title}>{transaction.title}</Text>
-        <Text style={styles.category}>{category.label}</Text>
+        <Text style={styles.title}>{transaction.name}</Text>
+        <Text style={styles.category}>{category.name}</Text>
       </View>
       <Text style={[styles.amount, isIncome ? styles.income : styles.expense]}>
         {isIncome ? "+" : "-"}
@@ -54,24 +58,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    paddingVertical: Spacing.md,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderBottomWidth: 1,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
   },
   iconWrap: {
     width: 42,
     height: 42,
-    borderRadius: Radius.md,
+    borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -79,23 +83,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: Typography.base,
+    fontSize: 14,
     fontWeight: "500",
-    color: Colors.textPrimary,
+    color: colors.text,
   },
   category: {
-    fontSize: Typography.xs,
-    color: Colors.textTertiary,
+    fontSize: 12,
+    color: colors.text3,
     marginTop: 2,
   },
   amount: {
-    fontSize: Typography.md,
+    fontSize: 16,
     fontWeight: "600",
   },
   income: {
-    color: Colors.accent,
+    color: colors.accent,
   },
   expense: {
-    color: Colors.red,
+    color: colors.red,
   },
 });
