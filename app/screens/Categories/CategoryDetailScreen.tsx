@@ -11,6 +11,20 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CategoryDetailScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
 
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const catIconMap: Record<string, IoniconName> = {
+  cart: "cart-outline",
+  car: "car-outline",
+  tv: "tv-outline",
+  pill: "medkit-outline",
+  food: "fast-food-outline",
+  gift: "gift-outline",
+  heart: "heart-outline",
+  cash: "cash-outline",
+  gas: "flame-outline",
+};
+
 const CategoryDetailScreen = ({
   navigation,
   route,
@@ -41,7 +55,7 @@ const CategoryDetailScreen = ({
       <View style={styles.detailCard}>
         <View style={[styles.iconBox, { backgroundColor: category.colorBg }]}>
           <Ionicons
-            name={category.icon || "pricetag-outline"}
+            name={catIconMap[category.icon] ?? "pricetag-outline"}
             size={24}
             color={category.color}
           />

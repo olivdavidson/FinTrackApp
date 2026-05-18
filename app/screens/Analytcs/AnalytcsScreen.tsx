@@ -58,6 +58,66 @@ const AnalyticsScreen = () => {
     loadAnalytics();
   }, [accessToken, refreshToken, updateTokens]);
 
+  const getPeriodStart = (period: Period) => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    if (period === "dia") {
+      start.setDate(start.getDate() - 6);
+    } else if (period === "semana") {
+      start.setDate(start.getDate() - 41);
+    } else {
+      start.setMonth(start.getMonth() - 5);
+    }
+
+    return start;
+  };
+
+  const getBucketInfo = (date: Date, period: Period) => {
+    if (period === "dia") {
+      const key = date.toISOString().slice(0, 10);
+      return {
+        key,
+        label: date.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        }),
+        order: date.getTime(),
+      };
+    }
+
+    if (period === "semana") {
+      const weekStart = new Date(date);
+      const day = weekStart.getDay();
+      const diff = (day + 6) % 7;
+      weekStart.setDate(weekStart.getDate() - diff);
+      weekStart.setHours(0, 0, 0, 0);
+      const key = weekStart.toISOString().slice(0, 10);
+      return {
+        key,
+        label: weekStart.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        }),
+        order: weekStart.getTime(),
+      };
+    }
+
+    const key = `${date.getFullYear()}-${date.getMonth()}`;
+    const label = date.toLocaleDateString("pt-BR", { month: "short" });
+    const order = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+    return { key, label, order };
+  };
+
+  const filteredTransactions = useMemo(() => {
+    const start = getPeriodStart(period);
+    return transactions.filter((tx) => {
+      const transactionDate = new Date(tx.date + "T00:00:00");
+      return transactionDate >= start;
+    });
+  }, [transactions, period]);
+
   const chartData = useMemo(() => {
     const buckets = new Map<
       string,
@@ -69,17 +129,16 @@ const AnalyticsScreen = () => {
       }
     >();
 
-    transactions.forEach((tx) => {
+    filteredTransactions.forEach((tx) => {
       const date = new Date(tx.date + "T00:00:00");
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
-      const label = date.toLocaleDateString("pt-BR", { month: "short" });
+      const { key, label, order } = getBucketInfo(date, period);
 
       if (!buckets.has(key)) {
         buckets.set(key, {
           label,
           income: 0,
           expense: 0,
-          order: date.getTime(),
+          order,
         });
       }
 
@@ -92,22 +151,35 @@ const AnalyticsScreen = () => {
       }
     });
 
-    return Array.from(buckets.values())
-      .sort((a, b) => a.order - b.order)
-      .slice(-6);
-  }, [transactions]);
+    return Array.from(buckets.values()).sort((a, b) => a.order - b.order);
+  }, [filteredTransactions, period]);
 
-  const summaryIncome = transactions
+  const summaryIncome = filteredTransactions
     .filter((tx) => tx.type === "income")
     .reduce((sum, tx) => sum + tx.amount, 0);
-  const summaryExpense = transactions
+  const summaryExpense = filteredTransactions
     .filter((tx) => tx.type === "expense")
     .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
   const summaryEconomy = summaryIncome - summaryExpense;
 
   const topCategories = useMemo(() => {
-    return [...categories].sort((a, b) => b.total - a.total).slice(0, 5);
-  }, [categories]);
+    const totalsByCategory = filteredTransactions.reduce(
+      (acc, tx) => {
+        const category = tx.category || "Outros";
+        acc[category] = (acc[category] ?? 0) + Math.abs(tx.amount);
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    return categories
+      .map((category) => ({
+        ...category,
+        total: totalsByCategory[category.name] ?? 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [categories, filteredTransactions]);
 
   const maxValue = Math.max(
     ...chartData.flatMap((d) => [d.income, d.expense]),
