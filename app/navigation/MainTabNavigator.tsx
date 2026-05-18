@@ -7,9 +7,9 @@ import { MainTabParamList } from "./types";
 
 import AnalyticsScreen from "../screens/Analytcs/AnalytcsScreen";
 import BalanceScreen from "../screens/Balance/BalanceScreen";
-import TransactionsScreen from "../screens/Transactions/TransacionsScreen";
 import HomeNavigator from "./HomeNavigation";
 import ProfileNavigator from "./ProfileNavigator";
+import TransactionNavigator from "./TransactionNavigator";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -61,7 +61,7 @@ const MainTabNavigator = () => (
     <Tab.Screen name="Home" component={HomeNavigator} />
     <Tab.Screen name="Balance" component={BalanceScreen} />
     <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-    <Tab.Screen name="Transactions" component={TransactionsScreen} />
+    <Tab.Screen name="Transactions" component={TransactionNavigator} />
     <Tab.Screen name="Profile" component={ProfileNavigator} />
   </Tab.Navigator>
 );

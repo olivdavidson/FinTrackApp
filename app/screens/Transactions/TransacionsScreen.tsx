@@ -1,16 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AmountText from "../../components/common/AmountText";
 import { useAuth } from "../../context/AuthContext";
+import { TransactionsScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
 import { getTransactions } from "../../utils/api";
 import { Transaction } from "../../utils/mockData";
@@ -56,7 +57,7 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const TransactionsScreen = () => {
+const TransactionsScreen = ({ navigation }: TransactionsScreenProps) => {
   const insets = useSafeAreaInsets();
   const { accessToken, refreshToken, updateTokens } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -65,30 +66,38 @@ const TransactionsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadTransactions() {
-      if (!accessToken || !refreshToken) return;
-      setLoading(true);
-      setError(null);
+  const loadTransactions = useCallback(async () => {
+    if (!accessToken || !refreshToken) return;
+    setLoading(true);
+    setError(null);
 
-      try {
-        const data = await getTransactions(
-          accessToken,
-          refreshToken,
-          updateTokens,
-        );
-        setTransactions(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Erro ao carregar transações.",
-        );
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const data = await getTransactions(
+        accessToken,
+        refreshToken,
+        updateTokens,
+      );
+      setTransactions(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao carregar transações.",
+      );
+    } finally {
+      setLoading(false);
     }
-
-    loadTransactions();
   }, [accessToken, refreshToken, updateTokens]);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      loadTransactions();
+    });
+
+    return unsubscribe;
+  }, [navigation, loadTransactions]);
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -103,7 +112,7 @@ const TransactionsScreen = () => {
               : tx.category === activeFilter;
       return matchSearch && matchFilter;
     });
-  }, [activeFilter, search]);
+  }, [activeFilter, search, transactions]);
 
   const groups = groupByDate(filtered);
 
@@ -114,7 +123,10 @@ const TransactionsScreen = () => {
     >
       <View style={styles.header}>
         <Text style={typography.h2}>Transações</Text>
-        <TouchableOpacity style={styles.addBtn}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => navigation.navigate("AddTransaction")}
+        >
           <Ionicons name="add" size={22} color={colors.bg} />
         </TouchableOpacity>
       </View>

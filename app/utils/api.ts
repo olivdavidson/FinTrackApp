@@ -89,9 +89,7 @@ export async function refreshAccessToken(
   return parseJson(response);
 }
 
-export async function getCurrentUser(
-  accessToken: string,
-): Promise<{
+export async function getCurrentUser(accessToken: string): Promise<{
   user: { _id: string; name: string; email: string; avatar?: string | null };
 }> {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
@@ -116,6 +114,30 @@ export async function getTransactions(
   return authFetch(
     `${API_BASE_URL}/data/transactions`,
     { method: "GET" },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function createTransaction(
+  transaction: Omit<Transaction, "id" | "date" | "iconColor" | "iconBg">,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<Transaction> {
+  return authFetch(
+    `${API_BASE_URL}/data/transactions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(transaction),
+    },
     accessToken,
     refreshToken,
     onTokenRefreshed,

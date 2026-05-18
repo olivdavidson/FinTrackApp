@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Card from "../../components/common/Card";
@@ -333,6 +333,7 @@ const styles = StyleSheet.create({
   },
   filterText: { fontSize: 13, fontWeight: "500", color: colors.text2 },
   filterTextActive: { color: colors.accent },
+  emptyText: { color: colors.text3, fontSize: 14, textAlign: "center" },
   summaryRow: {
     flexDirection: "row",
     gap: 8,

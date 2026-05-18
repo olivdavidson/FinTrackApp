@@ -2,21 +2,22 @@ import AmountText from "@/app/components/common/AmountText";
 import Avatar from "@/app/components/common/Avatar";
 import { colors, radius, spacing } from "@/app/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
-import { HomeStackParamList } from "../../navigation/types";
+import { HomeStackParamList, MainTabParamList } from "../../navigation/types";
 import { getAccounts, getTransactions } from "../../utils/api";
 import { Account, Transaction } from "../../utils/mockData";
 
@@ -24,6 +25,7 @@ import { Account, Transaction } from "../../utils/mockData";
 //import { Platform } from "react-native";
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList>;
+type TabNavProp = BottomTabNavigationProp<MainTabParamList>;
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 const txIconMap: Record<string, IoniconName> = {
@@ -39,39 +41,39 @@ const txIconMap: Record<string, IoniconName> = {
   heart: "heart-outline",
 };
 
+type QuickActionRoute = "Categories" | "Transactions" | "Analytics" | "Balance";
+
 interface QuickAction {
   label: string;
   icon: IoniconName;
-  onPress: () => void;
   color: string;
-  route?: Extract<keyof HomeStackParamList, "HomeMain" | "Categories">;
+  route: QuickActionRoute;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
     label: "Transações",
     icon: "swap-horizontal-outline",
-    onPress: () => {},
     color: colors.blue,
+    route: "Transactions",
   },
   {
     label: "Análises",
     icon: "pie-chart-outline",
-    onPress: () => {},
     color: colors.accent,
+    route: "Analytics",
   },
   {
     label: "Categorias",
     icon: "grid-outline",
-    onPress: () => {},
     color: colors.purple,
     route: "Categories",
   },
   {
     label: "Saldo",
     icon: "wallet-outline",
-    onPress: () => {},
     color: colors.amber,
+    route: "Balance",
   },
 ];
 
@@ -208,7 +210,14 @@ const HomeScreen = () => {
             <TouchableOpacity
               key={i}
               style={styles.qaItem}
-              onPress={() => item.route && navigation.navigate(item.route)}
+              onPress={() => {
+                const parentNavigation = navigation.getParent<TabNavProp>();
+                if (item.route === "Categories") {
+                  navigation.navigate("Categories");
+                } else {
+                  parentNavigation?.navigate(item.route);
+                }
+              }}
               activeOpacity={0.7}
             >
               <View style={[styles.qaIcon, { borderColor: colors.border }]}>

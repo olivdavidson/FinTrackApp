@@ -1,5 +1,6 @@
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Category } from "../utils/mockData";
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -20,7 +21,14 @@ export type MainTabParamList = {
 export type HomeStackParamList = {
   HomeMain: undefined;
   Categories: undefined;
+  CategoryDetail: { category: Category };
   TransactionDetail: { transactionId: string };
+};
+
+// Transaction Stack
+export type TransactionStackParamList = {
+  TransactionsMain: undefined;
+  AddTransaction: undefined;
 };
 
 // Profile Stack
@@ -50,6 +58,10 @@ export type CategoriesScreenProps = NativeStackScreenProps<
   HomeStackParamList,
   "Categories"
 >;
+export type CategoryDetailScreenProps = NativeStackScreenProps<
+  HomeStackParamList,
+  "CategoryDetail"
+>;
 export type BalanceScreenProps = BottomTabScreenProps<
   MainTabParamList,
   "Balance"
@@ -57,10 +69,6 @@ export type BalanceScreenProps = BottomTabScreenProps<
 export type AnalyticsScreenProps = BottomTabScreenProps<
   MainTabParamList,
   "Analytics"
->;
-export type TransactionsScreenProps = BottomTabScreenProps<
-  MainTabParamList,
-  "Transactions"
 >;
 export type ProfileScreenProps = NativeStackScreenProps<
   ProfileStackParamList,
@@ -81,4 +89,12 @@ export type AppSettingsScreenProps = NativeStackScreenProps<
 export type HelpScreenProps = NativeStackScreenProps<
   ProfileStackParamList,
   "Help"
+>;
+export type TransactionsScreenProps = NativeStackScreenProps<
+  TransactionStackParamList,
+  "TransactionsMain"
+>;
+export type AddTransactionScreenProps = NativeStackScreenProps<
+  TransactionStackParamList,
+  "AddTransaction"
 >;

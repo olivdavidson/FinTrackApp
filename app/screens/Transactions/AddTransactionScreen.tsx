@@ -1,0 +1,565 @@
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Card from "../../components/common/Card";
+import { useAuth } from "../../context/AuthContext";
+import { AddTransactionScreenProps } from "../../navigation/types";
+import { colors, radius, spacing, typography } from "../../theme";
+import { createTransaction } from "../../utils/api";
+import { mockCategories } from "../../utils/mockData";
+
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+interface TransactionFormData {
+  name: string;
+  amount: string;
+  type: "income" | "expense";
+  categoryId: string;
+}
+
+const TRANSACTION_TYPES = [
+  { id: "income", label: "Entrada", icon: "arrow-down-outline" as IoniconName },
+  { id: "expense", label: "Saída", icon: "arrow-up-outline" as IoniconName },
+];
+
+const categoryIconMap: Record<string, IoniconName> = {
+  cart: "cart-outline",
+  car: "car-outline",
+  food: "fast-food-outline",
+  tv: "tv-outline",
+  pill: "medkit-outline",
+  cash: "cash-outline",
+  gas: "flame-outline",
+  heart: "heart-outline",
+  gift: "gift-outline",
+  barbell: "barbell-outline",
+};
+
+const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
+  const insets = useSafeAreaInsets();
+  const { accessToken, refreshToken, updateTokens } = useAuth();
+  const [formData, setFormData] = useState<TransactionFormData>({
+    name: "",
+    amount: "",
+    type: "expense",
+    categoryId: mockCategories[0]?.id || "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const selectedCategory = mockCategories.find(
+    (c) => c.id === formData.categoryId,
+  );
+
+  const handleAddTransaction = async () => {
+    // Validação
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Digite o nome da transação";
+    }
+
+    if (!formData.amount.trim()) {
+      newErrors.amount = "Digite o valor";
+    } else if (isNaN(parseFloat(formData.amount))) {
+      newErrors.amount = "Valor inválido";
+    }
+
+    if (!formData.categoryId) {
+      newErrors.category = "Selecione uma categoria";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    if (!accessToken || !refreshToken) {
+      setSubmitError("Não foi possível autenticar. Faça login novamente.");
+      return;
+    }
+
+    setSaving(true);
+    setSubmitError(null);
+
+    try {
+      await createTransaction(
+        {
+          name: formData.name.trim(),
+          amount: Number(formData.amount.replace(",", ".")),
+          type: formData.type,
+          category: selectedCategory?.name ?? "",
+          icon: selectedCategory?.icon ?? "cash",
+        },
+        accessToken,
+        refreshToken,
+        updateTokens,
+      );
+
+      navigation.goBack();
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Erro ao salvar a transação.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    navigation.goBack();
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={[styles.container, { paddingTop: insets.top }]}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={handleCancel}
+            style={styles.headerButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={typography.h2}>Nova Transação</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Nome da Transação */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Nome da Transação</Text>
+            <View
+              style={[styles.inputContainer, errors.name && styles.inputError]}
+            >
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Compra no Mercado"
+                placeholderTextColor={colors.text3}
+                value={formData.name}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, name: text });
+                  if (errors.name) setErrors({ ...errors, name: "" });
+                }}
+              />
+            </View>
+            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+          </View>
+
+          {/* Tipo de Transação */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Tipo de Transação</Text>
+            <View style={styles.typeContainer}>
+              {TRANSACTION_TYPES.map((type) => (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.typeButton,
+                    formData.type === type.id && styles.typeButtonActive,
+                  ]}
+                  onPress={() =>
+                    setFormData({
+                      ...formData,
+                      type: type.id as "income" | "expense",
+                    })
+                  }
+                >
+                  <Ionicons
+                    name={type.icon}
+                    size={20}
+                    color={formData.type === type.id ? colors.bg : colors.text2}
+                  />
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      formData.type === type.id && styles.typeButtonTextActive,
+                    ]}
+                  >
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Valor */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Valor</Text>
+            <View
+              style={[
+                styles.inputContainer,
+                errors.amount && styles.inputError,
+              ]}
+            >
+              <Text style={styles.currencyPrefix}>R$</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0,00"
+                placeholderTextColor={colors.text3}
+                keyboardType="decimal-pad"
+                value={formData.amount}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, amount: text });
+                  if (errors.amount) setErrors({ ...errors, amount: "" });
+                }}
+              />
+            </View>
+            {errors.amount && (
+              <Text style={styles.errorText}>{errors.amount}</Text>
+            )}
+          </View>
+
+          {/* Categoria */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Categoria</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesContainer}
+            >
+              {mockCategories.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[
+                    styles.categoryButton,
+                    formData.categoryId === category.id &&
+                      styles.categoryButtonActive,
+                  ]}
+                  onPress={() =>
+                    setFormData({ ...formData, categoryId: category.id })
+                  }
+                >
+                  <View
+                    style={[
+                      styles.categoryIcon,
+                      formData.categoryId === category.id
+                        ? { backgroundColor: colors.accent }
+                        : { backgroundColor: category.colorBg },
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        categoryIconMap[category.icon] || "pricetag-outline"
+                      }
+                      size={20}
+                      color={
+                        formData.categoryId === category.id
+                          ? colors.bg
+                          : category.color
+                      }
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.categoryName,
+                      formData.categoryId === category.id &&
+                        styles.categoryNameActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            {errors.category && (
+              <Text style={styles.errorText}>{errors.category}</Text>
+            )}
+          </View>
+
+          {/* Resumo */}
+          {formData.name && formData.amount && (
+            <Card style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Transação:</Text>
+                <Text style={styles.summaryValue}>{formData.name}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Categoria:</Text>
+                <Text style={styles.summaryValue}>
+                  {selectedCategory?.name}
+                </Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Tipo:</Text>
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    {
+                      color:
+                        formData.type === "income" ? colors.accent : colors.red,
+                    },
+                  ]}
+                >
+                  {formData.type === "income" ? "Entrada" : "Saída"}
+                </Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, styles.amountLabel]}>
+                  Valor:
+                </Text>
+                <Text
+                  style={[
+                    styles.amountValue,
+                    {
+                      color:
+                        formData.type === "income" ? colors.accent : colors.red,
+                    },
+                  ]}
+                >
+                  {formData.type === "income" ? "+" : "-"} R${" "}
+                  {parseFloat(formData.amount).toFixed(2)}
+                </Text>
+              </View>
+            </Card>
+          )}
+        </View>
+
+        {/* Buttons */}
+        <View
+          style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}
+        >
+          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+            <Text style={styles.cancelButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.submitButton, saving && styles.submitButtonDisabled]}
+            onPress={handleAddTransaction}
+            disabled={saving}
+          >
+            <Ionicons name="add" size={20} color={colors.bg} />
+            <Text style={styles.submitButtonText}>
+              {saving ? "Salvando..." : "Adicionar"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {submitError ? (
+          <Text style={styles.errorText}>{submitError}</Text>
+        ) : null}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.bg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerButton: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
+  section: {
+    marginBottom: spacing.xl,
+  },
+  label: {
+    ...typography.label,
+    marginBottom: spacing.md,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  inputError: {
+    borderColor: colors.red,
+  },
+  input: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    padding: 0,
+  },
+  amountInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "600",
+    padding: 0,
+  },
+  currencyPrefix: {
+    color: colors.text2,
+    fontSize: 14,
+    fontWeight: "600",
+    marginRight: spacing.sm,
+  },
+  errorText: {
+    color: colors.red,
+    fontSize: 12,
+    marginTop: spacing.sm,
+  },
+  typeContainer: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  typeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+  },
+  typeButtonActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  typeButtonText: {
+    color: colors.text2,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  typeButtonTextActive: {
+    color: colors.bg,
+  },
+  categoriesContainer: {
+    gap: spacing.md,
+    paddingRight: spacing.lg,
+  },
+  categoryButton: {
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  categoryIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  categoryButtonActive: {
+    borderColor: colors.accent,
+  },
+  categoryName: {
+    color: colors.text2,
+    fontSize: 12,
+    fontWeight: "500",
+    maxWidth: 60,
+    textAlign: "center",
+  },
+  categoryNameActive: {
+    color: colors.accent,
+    fontWeight: "600",
+  },
+  summaryCard: {
+    backgroundColor: colors.card2,
+    marginBottom: spacing.xl,
+  },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.md,
+  },
+  summaryLabel: {
+    color: colors.text2,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  summaryValue: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  amountLabel: {
+    fontWeight: "600",
+  },
+  amountValue: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  footer: {
+    flexDirection: "row",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  submitButton: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: colors.bg,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});
+
+export default AddTransactionScreen;

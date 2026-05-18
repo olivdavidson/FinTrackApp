@@ -219,6 +219,34 @@ router.get("/transactions", requireAuth, (req, res) => {
   res.json({ success: true, data: transactions });
 });
 
+router.post("/transactions", requireAuth, (req, res) => {
+  const { name, amount, type, category, icon } = req.body;
+
+  if (!name || amount == null || !type || !category) {
+    return res.status(400).json({
+      success: false,
+      message: "Nome, valor, tipo e categoria são obrigatórios.",
+    });
+  }
+
+  const categoryInfo = categories.find((cat) => cat.name === category);
+  const newTransaction = {
+    id: `${Date.now()}`,
+    name,
+    category,
+    amount: Number(amount),
+    type,
+    date: new Date().toISOString().slice(0, 10),
+    icon: icon || categoryInfo?.icon || "cash",
+    iconColor: categoryInfo?.color || "#4AE1C8",
+    iconBg: categoryInfo?.colorBg || "rgba(74,225,200,0.15)",
+  };
+
+  transactions.unshift(newTransaction);
+
+  res.json({ success: true, data: newTransaction });
+});
+
 router.get("/accounts", requireAuth, (req, res) => {
   res.json({ success: true, data: accounts });
 });

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
 import {
     Platform,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
+import { HomeStackParamList } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
 import { getCategories } from "../../utils/api";
 import { Category } from "../../utils/mockData";
@@ -28,7 +30,10 @@ const catIconMap: Record<string, IoniconName> = {
 
 const CategoriesScreen = () => {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation =
+    useNavigation<
+      NativeStackNavigationProp<HomeStackParamList, "Categories">
+    >();
   const { accessToken, refreshToken, updateTokens } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +113,9 @@ const CategoriesScreen = () => {
               key={cat.id}
               style={styles.catCard}
               activeOpacity={0.7}
+              onPress={() =>
+                navigation.navigate("CategoryDetail", { category: cat })
+              }
             >
               <View style={styles.catHeader}>
                 <View
