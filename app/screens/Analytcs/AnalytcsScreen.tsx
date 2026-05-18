@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Platform,
     ScrollView,
@@ -10,8 +10,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Card from "../../components/common/Card";
+import { useAuth } from "../../context/AuthContext";
 import { colors, radius, spacing, typography } from "../../theme";
-import { mockCategories, mockChartData } from "../../utils/mockData";
+import { getCategories, getTransactions } from "../../utils/api";
+import { Category, Transaction } from "../../utils/mockData";
 
 type Period = "dia" | "semana" | "mes";
 const FILTERS: { key: Period; label: string }[] = [
@@ -22,10 +24,94 @@ const FILTERS: { key: Period; label: string }[] = [
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
+  const { accessToken, refreshToken, updateTokens } = useAuth();
   const [period, setPeriod] = useState<Period>("mes");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadAnalytics() {
+      if (!accessToken || !refreshToken) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [transactionsData, categoriesData] = await Promise.all([
+          getTransactions(accessToken, refreshToken, updateTokens),
+          getCategories(accessToken, refreshToken, updateTokens),
+        ]);
+        setTransactions(transactionsData);
+        setCategories(categoriesData);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Erro ao carregar dados de análises.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAnalytics();
+  }, [accessToken, refreshToken, updateTokens]);
+
+  const chartData = useMemo(() => {
+    const buckets = new Map<
+      string,
+      {
+        label: string;
+        income: number;
+        expense: number;
+        order: number;
+      }
+    >();
+
+    transactions.forEach((tx) => {
+      const date = new Date(tx.date + "T00:00:00");
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      const label = date.toLocaleDateString("pt-BR", { month: "short" });
+
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          label,
+          income: 0,
+          expense: 0,
+          order: date.getTime(),
+        });
+      }
+
+      const bucket = buckets.get(key)!;
+
+      if (tx.type === "income") {
+        bucket.income += tx.amount;
+      } else {
+        bucket.expense += Math.abs(tx.amount);
+      }
+    });
+
+    return Array.from(buckets.values())
+      .sort((a, b) => a.order - b.order)
+      .slice(-6);
+  }, [transactions]);
+
+  const summaryIncome = transactions
+    .filter((tx) => tx.type === "income")
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const summaryExpense = transactions
+    .filter((tx) => tx.type === "expense")
+    .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+  const summaryEconomy = summaryIncome - summaryExpense;
+
+  const topCategories = useMemo(() => {
+    return [...categories].sort((a, b) => b.total - a.total).slice(0, 5);
+  }, [categories]);
 
   const maxValue = Math.max(
-    ...mockChartData.monthly.flatMap((d) => [d.income, d.expense]),
+    ...chartData.flatMap((d) => [d.income, d.expense]),
+    1,
   );
   const CHART_H = 120;
 
@@ -62,126 +148,161 @@ const AnalyticsScreen = () => {
         ))}
       </View>
 
-      {/* Summary Row */}
-      <View style={styles.summaryRow}>
-        <View
-          style={[styles.summaryCard, { borderColor: `${colors.accent}33` }]}
-        >
-          <Ionicons name="arrow-up-outline" size={16} color={colors.accent} />
-          <Text style={styles.summaryLabel}>Entradas</Text>
-          <Text style={[styles.summaryValue, { color: colors.accent }]}>
-            R$4.200
-          </Text>
+      {loading && (
+        <View style={[styles.summaryRow, { justifyContent: "center" }]}>
+          <Text style={styles.emptyText}>Carregando análises...</Text>
         </View>
-        <View style={[styles.summaryCard, { borderColor: `${colors.red}33` }]}>
-          <Ionicons name="arrow-down-outline" size={16} color={colors.red} />
-          <Text style={styles.summaryLabel}>Saídas</Text>
-          <Text style={[styles.summaryValue, { color: colors.red }]}>
-            R$1.832
-          </Text>
+      )}
+      {error && (
+        <View style={[styles.summaryRow, { justifyContent: "center" }]}>
+          <Text style={styles.emptyText}>{error}</Text>
         </View>
-        <View style={[styles.summaryCard, { borderColor: `${colors.blue}33` }]}>
-          <Ionicons name="trending-up-outline" size={16} color={colors.blue} />
-          <Text style={styles.summaryLabel}>Economia</Text>
-          <Text style={[styles.summaryValue, { color: colors.blue }]}>
-            R$2.368
-          </Text>
-        </View>
-      </View>
+      )}
 
-      {/* Bar Chart */}
-      <View style={styles.section}>
-        <Card>
-          <Text style={styles.chartTitle}>Entradas vs. Saídas</Text>
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: colors.accent }]}
+      {!loading && !error && (
+        <>
+          <View style={styles.summaryRow}>
+            <View
+              style={[
+                styles.summaryCard,
+                { borderColor: `${colors.accent}33` },
+              ]}
+            >
+              <Ionicons
+                name="arrow-up-outline"
+                size={16}
+                color={colors.accent}
               />
-              <Text style={styles.legendText}>Entradas</Text>
+              <Text style={styles.summaryLabel}>Entradas</Text>
+              <Text style={[styles.summaryValue, { color: colors.accent }]}>
+                R${summaryIncome.toLocaleString("pt-BR")}
+              </Text>
             </View>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: colors.red }]}
+            <View
+              style={[styles.summaryCard, { borderColor: `${colors.red}33` }]}
+            >
+              <Ionicons
+                name="arrow-down-outline"
+                size={16}
+                color={colors.red}
               />
-              <Text style={styles.legendText}>Saídas</Text>
+              <Text style={styles.summaryLabel}>Saídas</Text>
+              <Text style={[styles.summaryValue, { color: colors.red }]}>
+                R${summaryExpense.toLocaleString("pt-BR")}
+              </Text>
+            </View>
+            <View
+              style={[styles.summaryCard, { borderColor: `${colors.blue}33` }]}
+            >
+              <Ionicons
+                name="trending-up-outline"
+                size={16}
+                color={colors.blue}
+              />
+              <Text style={styles.summaryLabel}>Economia</Text>
+              <Text style={[styles.summaryValue, { color: colors.blue }]}>
+                R${summaryEconomy.toLocaleString("pt-BR")}
+              </Text>
             </View>
           </View>
-          <View style={[styles.barChart, { height: CHART_H + 24 }]}>
-            {mockChartData.monthly.map((d, i) => {
-              const isCurrent = i === mockChartData.monthly.length - 1;
-              return (
-                <View key={i} style={styles.barGroup}>
-                  <View style={[styles.bars, { height: CHART_H }]}>
+
+          <View style={styles.section}>
+            <Card>
+              <Text style={styles.chartTitle}>Entradas vs. Saídas</Text>
+              <View style={styles.legend}>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[
+                      styles.legendDot,
+                      { backgroundColor: colors.accent },
+                    ]}
+                  />
+                  <Text style={styles.legendText}>Entradas</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View
+                    style={[styles.legendDot, { backgroundColor: colors.red }]}
+                  />
+                  <Text style={styles.legendText}>Saídas</Text>
+                </View>
+              </View>
+              <View style={[styles.barChart, { height: CHART_H + 24 }]}>
+                {chartData.map((d, i) => {
+                  const isLast = i === chartData.length - 1;
+                  return (
+                    <View key={d.label} style={styles.barGroup}>
+                      <View style={[styles.bars, { height: CHART_H }]}>
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: (d.income / maxValue) * CHART_H,
+                              backgroundColor: colors.accent,
+                              opacity: isLast ? 1 : 0.45,
+                            },
+                          ]}
+                        />
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: (d.expense / maxValue) * CHART_H,
+                              backgroundColor: colors.red,
+                              opacity: isLast ? 0.9 : 0.55,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.barLabel,
+                          isLast && { color: colors.accent, fontWeight: "600" },
+                        ]}
+                      >
+                        {d.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </Card>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Maiores gastos</Text>
+            <Card>
+              {topCategories.map((cat, i) => (
+                <View
+                  key={cat.id}
+                  style={[
+                    styles.expRow,
+                    i < topCategories.length - 1 && styles.expRowBorder,
+                  ]}
+                >
+                  <Text style={styles.expRank}>{i + 1}</Text>
+                  <View
+                    style={[styles.expDot, { backgroundColor: cat.color }]}
+                  />
+                  <Text style={styles.expName}>{cat.name}</Text>
+                  <View style={styles.expBarBg}>
                     <View
                       style={[
-                        styles.bar,
+                        styles.expBarFill,
                         {
-                          height: (d.income / maxValue) * CHART_H,
-                          backgroundColor: colors.accent,
-                          opacity: isCurrent ? 1 : 0.45,
-                        },
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          height: (d.expense / maxValue) * CHART_H,
-                          backgroundColor: colors.red,
-                          opacity: isCurrent ? 0.9 : 0.55,
+                          width:
+                            `${Math.min(cat.percentage ?? 0, 100)}%` as any,
+                          backgroundColor: cat.color,
                         },
                       ]}
                     />
                   </View>
-                  <Text
-                    style={[
-                      styles.barLabel,
-                      isCurrent && { color: colors.accent, fontWeight: "600" },
-                    ]}
-                  >
-                    {d.month}
-                  </Text>
+                  <Text style={styles.expAmount}>R${cat.total}</Text>
                 </View>
-              );
-            })}
+              ))}
+            </Card>
           </View>
-        </Card>
-      </View>
-
-      {/* Top Expenses */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Maiores gastos</Text>
-        <Card>
-          {mockCategories.map((cat, i) => (
-            <View
-              key={cat.id}
-              style={[
-                styles.expRow,
-                i < mockCategories.length - 1 && styles.expRowBorder,
-              ]}
-            >
-              <Text style={styles.expRank}>{i + 1}</Text>
-              <View style={[styles.expDot, { backgroundColor: cat.color }]} />
-              <Text style={styles.expName}>{cat.name}</Text>
-              <View style={styles.expBarBg}>
-                <View
-                  style={[
-                    styles.expBarFill,
-                    {
-                      width: `${cat.percentage}%` as any,
-                      backgroundColor: cat.color,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.expAmount}>R${cat.total}</Text>
-            </View>
-          ))}
-        </Card>
-      </View>
-
-      <View style={{ height: spacing.xl }} />
+        </>
+      )}
     </ScrollView>
   );
 };

@@ -1,17 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AmountText from "../../components/common/AmountText";
+import { useAuth } from "../../context/AuthContext";
 import { colors, radius, spacing, typography } from "../../theme";
-import { mockTransactions, Transaction } from "../../utils/mockData";
+import { getTransactions } from "../../utils/api";
+import { Transaction } from "../../utils/mockData";
 
 type Filter = "Todas" | "Entradas" | "Saídas" | "Mercado" | "Transporte";
 const FILTERS: Filter[] = [
@@ -56,11 +58,40 @@ const formatDate = (dateStr: string) => {
 
 const TransactionsScreen = () => {
   const insets = useSafeAreaInsets();
+  const { accessToken, refreshToken, updateTokens } = useAuth();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeFilter, setActiveFilter] = useState<Filter>("Todas");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadTransactions() {
+      if (!accessToken || !refreshToken) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getTransactions(
+          accessToken,
+          refreshToken,
+          updateTokens,
+        );
+        setTransactions(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Erro ao carregar transações.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTransactions();
+  }, [accessToken, refreshToken, updateTokens]);
 
   const filtered = useMemo(() => {
-    return mockTransactions.filter((tx) => {
+    return transactions.filter((tx) => {
       const matchSearch = tx.name.toLowerCase().includes(search.toLowerCase());
       const matchFilter =
         activeFilter === "Todas"
@@ -157,7 +188,17 @@ const TransactionsScreen = () => {
             ))}
           </View>
         ))}
-        {filtered.length === 0 && (
+        {loading && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>Carregando transações...</Text>
+          </View>
+        )}
+        {!loading && error && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>{error}</Text>
+          </View>
+        )}
+        {!loading && !error && filtered.length === 0 && (
           <View style={styles.empty}>
             <Ionicons name="search-outline" size={40} color={colors.text3} />
             <Text style={styles.emptyText}>Nenhuma transação encontrada</Text>

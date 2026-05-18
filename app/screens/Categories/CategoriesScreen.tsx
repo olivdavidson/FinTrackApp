@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     Platform,
     ScrollView,
@@ -10,8 +10,10 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 import { colors, radius, spacing, typography } from "../../theme";
-import { mockCategories } from "../../utils/mockData";
+import { getCategories } from "../../utils/api";
+import { Category } from "../../utils/mockData";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 const catIconMap: Record<string, IoniconName> = {
@@ -27,8 +29,38 @@ const catIconMap: Record<string, IoniconName> = {
 const CategoriesScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const totalExpense = mockCategories.reduce((sum, c) => sum + c.total, 0);
-  const maxTotal = mockCategories[0].total;
+  const { accessToken, refreshToken, updateTokens } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadCategories() {
+      if (!accessToken || !refreshToken) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getCategories(
+          accessToken,
+          refreshToken,
+          updateTokens,
+        );
+        setCategories(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Erro ao carregar categorias.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadCategories();
+  }, [accessToken, refreshToken, updateTokens]);
+
+  const totalExpense = categories.reduce((sum, c) => sum + c.total, 0);
+  const maxTotal = categories.length > 0 ? categories[0].total : 1;
 
   return (
     <ScrollView
@@ -58,7 +90,7 @@ const CategoriesScreen = () => {
 
       {/* Color Legend */}
       <View style={styles.legendRow}>
-        {mockCategories.map((cat) => (
+        {categories.map((cat) => (
           <View key={cat.id} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
             <Text style={styles.legendName}>{cat.name}</Text>
@@ -69,7 +101,7 @@ const CategoriesScreen = () => {
 
       {/* Category Cards */}
       <View style={styles.list}>
-        {mockCategories.map((cat) => {
+        {categories.map((cat) => {
           const barWidth = (cat.total / maxTotal) * 100;
           return (
             <TouchableOpacity
@@ -131,6 +163,13 @@ const CategoriesScreen = () => {
         })}
       </View>
 
+      {loading && (
+        <Text style={styles.loaderText}>Carregando categorias...</Text>
+      )}
+      {error && <Text style={styles.loaderText}>{error}</Text>}
+      {!loading && !error && categories.length === 0 && (
+        <Text style={styles.loaderText}>Nenhuma categoria encontrada</Text>
+      )}
       <View style={{ height: spacing.xl }} />
     </ScrollView>
   );
@@ -217,6 +256,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   catBudget: { fontSize: 11, color: colors.text3 },
+  loaderText: {
+    fontSize: 13,
+    color: colors.text3,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
 });
 
 export default CategoriesScreen;

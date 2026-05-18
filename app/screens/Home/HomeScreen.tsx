@@ -1,12 +1,11 @@
 import AmountText from "@/app/components/common/AmountText";
 import Avatar from "@/app/components/common/Avatar";
 import { colors, radius, spacing } from "@/app/theme";
-import { mockTransactions, mockUser } from "@/app/utils/mockData";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
     Platform,
     ScrollView,
@@ -16,7 +15,10 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 import { HomeStackParamList } from "../../navigation/types";
+import { getAccounts, getTransactions } from "../../utils/api";
+import { Account, Transaction } from "../../utils/mockData";
 
 // Workaround para importar Platform nos styles
 //import { Platform } from "react-native";
@@ -76,7 +78,60 @@ const QUICK_ACTIONS: QuickAction[] = [
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
-  const recentTxs = mockTransactions.slice(0, 4);
+  const { accessToken, refreshToken, updateTokens, user } = useAuth();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadSummary() {
+      if (!accessToken || !refreshToken) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [accountsData, transactionsData] = await Promise.all([
+          getAccounts(accessToken, refreshToken, updateTokens),
+          getTransactions(accessToken, refreshToken, updateTokens),
+        ]);
+
+        setAccounts(accountsData);
+        setTransactions(transactionsData);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Erro ao carregar dados do usuário.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadSummary();
+  }, [accessToken, refreshToken, updateTokens]);
+
+  const userName = user?.name ?? "Usuário";
+  const initials = userName
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join("");
+
+  const totalBalance = accounts.reduce(
+    (sum, account) => sum + account.balance,
+    0,
+  );
+  const monthIncome = transactions
+    .filter((tx) => tx.type === "income")
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const monthExpense = Math.abs(
+    transactions
+      .filter((tx) => tx.type === "expense")
+      .reduce((sum, tx) => sum + tx.amount, 0),
+  );
+  const recentTxs = transactions.slice(0, 4);
 
   return (
     <ScrollView
@@ -87,9 +142,9 @@ const HomeScreen = () => {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Bom dia, 👋</Text>
-          <Text style={styles.name}>{mockUser.name}</Text>
+          <Text style={styles.name}>{userName}</Text>
         </View>
-        <Avatar initials={mockUser.initials} size={40} />
+        <Avatar initials={initials} size={40} />
       </View>
 
       {/* Balance Card */}
@@ -103,9 +158,9 @@ const HomeScreen = () => {
         <Text style={styles.balanceLabel}>Saldo disponível</Text>
         <Text style={styles.balanceAmount}>
           <Text style={{ color: colors.accent }}>R$</Text>{" "}
-          {Math.floor(mockUser.totalBalance).toLocaleString("pt-BR")}
+          {Math.floor(totalBalance).toLocaleString("pt-BR")}
           <Text style={styles.balanceCents}>
-            ,{(mockUser.totalBalance % 1).toFixed(2).slice(2)}
+            ,{(totalBalance % 1).toFixed(2).slice(2)}
           </Text>
         </Text>
         <View style={styles.balanceChange}>
@@ -127,7 +182,7 @@ const HomeScreen = () => {
               <Text style={styles.miniLabel}>Entradas</Text>
             </View>
             <Text style={[styles.miniValue, { color: colors.accent }]}>
-              R${mockUser.monthIncome.toLocaleString("pt-BR")}
+              R${monthIncome.toLocaleString("pt-BR")}
             </Text>
           </View>
           <View style={styles.miniStat}>
@@ -140,7 +195,7 @@ const HomeScreen = () => {
               <Text style={styles.miniLabel}>Saídas</Text>
             </View>
             <Text style={[styles.miniValue, { color: colors.red }]}>
-              R${mockUser.monthExpense.toLocaleString("pt-BR")}
+              R${monthExpense.toLocaleString("pt-BR")}
             </Text>
           </View>
         </View>

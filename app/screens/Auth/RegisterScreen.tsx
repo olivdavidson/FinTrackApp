@@ -31,19 +31,57 @@ type NavProp = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-const LoginScreen = () => {
+const RegisterScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const { register } = useAuth();
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert("Erro", "Preencha e-mail e senha para continuar.");
+  const getPasswordStrength = (value: string) => {
+    let score = 0;
+    if (value.length >= 8) score += 1;
+    if (/[A-Z]/.test(value)) score += 1;
+    if (/[a-z]/.test(value)) score += 1;
+    if (/\d/.test(value)) score += 1;
+    if (/[^A-Za-z0-9]/.test(value)) score += 1;
+    return score;
+  };
+
+  const passwordStrength = getPasswordStrength(password);
+  const passwordStrengthLabel =
+    passwordStrength <= 2
+      ? "Fraca"
+      : passwordStrength === 3
+        ? "Média"
+        : "Forte";
+  const passwordStrengthColor =
+    passwordStrength <= 2
+      ? "#F87171"
+      : passwordStrength === 3
+        ? "#FBBF24"
+        : "#34D399";
+
+  const handleRegister = async () => {
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      Alert.alert("Erro", "Preencha todos os campos para continuar.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage("A senha e a confirmação não coincidem.");
+      return;
+    }
+
+    if (passwordStrength < 3) {
+      setErrorMessage(
+        "Escolha uma senha mais forte: use letras maiúsculas, minúsculas, números e símbolos.",
+      );
       return;
     }
 
@@ -51,26 +89,14 @@ const LoginScreen = () => {
     setErrorMessage(null);
 
     try {
-      await signIn(email.trim(), password);
+      await register(name.trim(), email.trim(), password);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Erro ao fazer login.",
+        error instanceof Error ? error.message : "Erro ao cadastrar usuário.",
       );
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleLogin = async () => {
-    Alert.alert("Em breve", "Login social ainda não está implementado.");
-  };
-
-  const handleFacebookLogin = async () => {
-    Alert.alert("Em breve", "Login social ainda não está implementado.");
-  };
-
-  const handleXLogin = async () => {
-    Alert.alert("Em breve", "Login social ainda não está implementado.");
   };
 
   return (
@@ -78,7 +104,6 @@ const LoginScreen = () => {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Hero com LinearGradient do Expo */}
       <LinearGradient
         colors={["#0F1A30", "#0A1020", "#0A0F1E"]}
         start={{ x: 0, y: 0 }}
@@ -93,7 +118,9 @@ const LoginScreen = () => {
             Fin<Text style={styles.appNameAccent}>Track</Text>
           </Text>
         </View>
-        <Text style={styles.tagline}>Controle total do seu dinheiro</Text>
+        <Text style={styles.tagline}>
+          Cadastre-se e comece a controlar seu dinheiro
+        </Text>
       </LinearGradient>
 
       <ScrollView
@@ -101,10 +128,29 @@ const LoginScreen = () => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.heading}>Bem-vindo de volta</Text>
-        <Text style={styles.subheading}>Entre na sua conta para continuar</Text>
+        <Text style={styles.heading}>Crie sua conta</Text>
+        <Text style={styles.subheading}>
+          Preencha os dados abaixo para continuar
+        </Text>
 
-        {/* Email */}
+        <Text style={styles.label}>Nome completo</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="person-outline"
+            size={18}
+            color={colors.text3}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Seu nome"
+            placeholderTextColor={colors.text3}
+            autoCapitalize="words"
+          />
+        </View>
+
         <Text style={styles.label}>E-mail</Text>
         <View style={styles.inputWrapper}>
           <Ionicons
@@ -125,7 +171,6 @@ const LoginScreen = () => {
           />
         </View>
 
-        {/* Senha */}
         <Text style={styles.label}>Senha</Text>
         <View style={styles.inputWrapper}>
           <Ionicons
@@ -154,83 +199,75 @@ const LoginScreen = () => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.forgotPassword}>
-          <Text style={styles.forgotText}>Esqueceu a senha?</Text>
-        </TouchableOpacity>
+        <View style={styles.strengthRow}>
+          <Text style={styles.strengthLabel}>Força da senha</Text>
+          <Text
+            style={[styles.strengthValue, { color: passwordStrengthColor }]}
+          >
+            {passwordStrengthLabel}
+          </Text>
+        </View>
+        <View style={styles.strengthMeterBackground}>
+          <View
+            style={[
+              styles.strengthMeterFill,
+              {
+                width: `${(passwordStrength / 5) * 100}%`,
+                backgroundColor: passwordStrengthColor,
+              },
+            ]}
+          />
+        </View>
+
+        <Text style={styles.label}>Confirmar senha</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={18}
+            color={colors.text3}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Repita a senha"
+            placeholderTextColor={colors.text3}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.eyeIcon}
+          >
+            <Ionicons
+              name={showPassword ? "eye-off-outline" : "eye-outline"}
+              size={18}
+              color={colors.text3}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.btnPrimary, loading && styles.btnPrimaryLoading]}
-          onPress={handleLogin}
+          onPress={handleRegister}
           activeOpacity={0.85}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color={colors.bg} />
           ) : (
-            <Text style={styles.btnPrimaryText}>Entrar</Text>
+            <Text style={styles.btnPrimaryText}>Cadastrar</Text>
           )}
         </TouchableOpacity>
 
-        {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        ) : null}
-
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou continue com</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Social Buttons */}
-        <View style={styles.socialRow}>
-          <TouchableOpacity
-            style={styles.socialBtn}
-            onPress={handleGoogleLogin}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.socialIcon, { backgroundColor: "#fff" }]}>
-              <Text style={[styles.socialIconText, { color: "#333" }]}>G</Text>
-            </View>
-            <Text style={styles.socialBtnText}>Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.socialBtn}
-            onPress={handleFacebookLogin}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.socialIcon, { backgroundColor: "#1877F2" }]}>
-              <Text style={[styles.socialIconText, { color: "#fff" }]}>f</Text>
-            </View>
-            <Text style={styles.socialBtnText}>Facebook</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.socialBtn}
-            onPress={handleXLogin}
-            activeOpacity={0.8}
-          >
-            <View
-              style={[
-                styles.socialIcon,
-                {
-                  backgroundColor: "#000",
-                  borderWidth: 1,
-                  borderColor: "#333",
-                },
-              ]}
-            >
-              <Text style={[styles.socialIconText, { color: "#fff" }]}>X</Text>
-            </View>
-            <Text style={styles.socialBtnText}>X</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.signupRow}>
-          <Text style={styles.signupText}>Não tem conta? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-            <Text style={styles.signupLink}>Cadastre-se</Text>
+          <Text style={styles.signupText}>Já tem uma conta? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+            <Text style={styles.signupLink}>Entrar</Text>
           </TouchableOpacity>
         </View>
 
@@ -305,8 +342,6 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 8 },
   input: { flex: 1, paddingVertical: 13, color: colors.text, fontSize: 14 },
   eyeIcon: { padding: 4 },
-  forgotPassword: { alignSelf: "flex-end", marginBottom: spacing.lg },
-  forgotText: { fontSize: 12, color: colors.accent },
   btnPrimary: {
     backgroundColor: colors.accent,
     borderRadius: radius.lg,
@@ -322,36 +357,32 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     fontSize: 13,
   },
-  divider: {
+  strengthRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  strengthLabel: {
+    fontSize: 12,
+    color: colors.text2,
+  },
+  strengthValue: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  strengthMeterBackground: {
+    width: "100%",
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: 999,
+    overflow: "hidden",
     marginBottom: spacing.lg,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { fontSize: 12, color: colors.text3 },
-  socialRow: { flexDirection: "row", gap: 10, marginBottom: spacing.xl },
-  socialBtn: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  strengthMeterFill: {
+    height: "100%",
+    borderRadius: 999,
   },
-  socialIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  socialIconText: { fontSize: 11, fontWeight: "700" },
-  socialBtnText: { fontSize: 12, color: colors.text2, fontWeight: "500" },
   signupRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -361,4 +392,4 @@ const styles = StyleSheet.create({
   signupLink: { fontSize: 13, color: colors.accent, fontWeight: "600" },
 });
 
-export default LoginScreen;
+export default RegisterScreen;

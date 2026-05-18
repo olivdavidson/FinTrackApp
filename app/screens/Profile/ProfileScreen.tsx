@@ -3,6 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React from "react";
 import {
+    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -11,9 +12,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SectionTitle from "../../components/common/SectionTitle";
+import { useAuth } from "../../context/AuthContext";
 import { ProfileStackParamList } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
-import { mockUser } from "../../utils/mockData";
 
 type NavProp = NativeStackNavigationProp<ProfileStackParamList>;
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -61,6 +62,28 @@ const MenuItem: React.FC<MenuItemProps> = ({
 const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
+  const { user, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    Alert.alert("Sair", "Deseja realmente encerrar a sessão?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sair",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+        },
+      },
+    ]);
+  };
+
+  const userName = user?.name || "Usuário";
+  const userEmail = user?.email || "email@exemplo.com";
+  const initials = userName
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join("");
 
   return (
     <ScrollView
@@ -81,17 +104,17 @@ const ProfileScreen = () => {
       <View style={styles.hero}>
         <View style={styles.avatarWrapper}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{mockUser.initials}</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <TouchableOpacity style={styles.avatarEditBtn}>
             <Ionicons name="camera-outline" size={14} color={colors.bg} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.userName}>{mockUser.name}</Text>
-        <Text style={styles.userEmail}>{mockUser.email}</Text>
+        <Text style={styles.userName}>{userName}</Text>
+        <Text style={styles.userEmail}>{userEmail}</Text>
         <View style={styles.planBadge}>
           <Ionicons name="star" size={12} color={colors.accent} />
-          <Text style={styles.planText}>Plano {mockUser.plan}</Text>
+          <Text style={styles.planText}>Plano Básico</Text>
         </View>
       </View>
 
@@ -175,7 +198,11 @@ const ProfileScreen = () => {
       </View>
 
       {/* Logout */}
-      <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={styles.logoutBtn}
+        activeOpacity={0.8}
+        onPress={handleLogout}
+      >
         <Ionicons name="log-out-outline" size={20} color={colors.red} />
         <Text style={styles.logoutText}>Sair da conta</Text>
       </TouchableOpacity>

@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Card from "../../components/common/Card";
 import SectionTitle from "../../components/common/SectionTitle";
+import { useAuth } from "../../context/AuthContext";
 import { colors, radius, spacing, typography } from "../../theme";
-import { mockAccounts, mockUser } from "../../utils/mockData";
+import { getAccounts, getTransactions } from "../../utils/api";
+import { Account, Transaction } from "../../utils/mockData";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 const accountIconMap: Record<string, IoniconName> = {
@@ -60,7 +62,55 @@ const ProgressCard: React.FC<ProgressCardProps> = ({
 
 const BalanceScreen = () => {
   const insets = useSafeAreaInsets();
-  const totalBalance = mockAccounts.reduce((sum, a) => sum + a.balance, 0);
+  const { accessToken, refreshToken, updateTokens, user } = useAuth();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!accessToken || !refreshToken) return;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const accountsData = await getAccounts(
+          accessToken,
+          refreshToken,
+          updateTokens,
+        );
+        const transactionsData = await getTransactions(
+          accessToken,
+          refreshToken,
+          updateTokens,
+        );
+        setAccounts(accountsData);
+        setTransactions(transactionsData);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Erro ao carregar dados financeiros.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [accessToken, refreshToken, updateTokens]);
+
+  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
+  const totalIncome = transactions
+    .filter((tx) => tx.type === "income")
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const totalExpense = Math.abs(
+    transactions
+      .filter((tx) => tx.type === "expense")
+      .reduce((sum, tx) => sum + tx.amount, 0),
+  );
+  const userName = user?.name ?? "seu";
 
   return (
     <ScrollView
@@ -69,7 +119,7 @@ const BalanceScreen = () => {
     >
       <View style={styles.header}>
         <Text style={typography.h2}>Saldo</Text>
-        <Text style={styles.subtitle}>Resumo financeiro de maio</Text>
+        <Text style={styles.subtitle}>Resumo financeiro de {userName}</Text>
       </View>
 
       {/* Big Balance Gradient Card */}
@@ -99,25 +149,30 @@ const BalanceScreen = () => {
       {/* Progress */}
       <View style={styles.section}>
         <ProgressCard
-          label="Meta de economia"
-          value={mockUser.currentSavings}
-          max={mockUser.savingsGoal}
+          label="Entradas este mês"
+          value={totalIncome}
+          max={Math.max(totalIncome, totalExpense, 1)}
           color={colors.accent}
-          icon="checkmark-circle-outline"
+          icon="arrow-up-circle-outline"
         />
         <ProgressCard
-          label="Limite de gastos"
-          value={mockUser.monthExpense}
-          max={mockUser.spendingLimit}
-          color={colors.amber}
-          icon="alert-circle-outline"
+          label="Saídas este mês"
+          value={totalExpense}
+          max={Math.max(totalIncome, totalExpense, 1)}
+          color={colors.red}
+          icon="arrow-down-circle-outline"
         />
       </View>
 
       {/* Accounts */}
       <View style={styles.section}>
         <SectionTitle>Contas vinculadas</SectionTitle>
-        {mockAccounts.map((acc) => (
+        {loading && <Text style={styles.subTitle}>Carregando contas...</Text>}
+        {error && <Text style={styles.subTitle}>{error}</Text>}
+        {!loading && !error && accounts.length === 0 && (
+          <Text style={styles.subTitle}>Nenhuma conta encontrada</Text>
+        )}
+        {accounts.map((acc) => (
           <View key={acc.id} style={styles.accountItem}>
             <View style={[styles.accountIcon, { backgroundColor: acc.iconBg }]}>
               <Ionicons
@@ -205,6 +260,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   progressVal: { fontSize: 12, color: colors.text2, fontFamily: mono },
+  subTitle: { fontSize: 13, color: colors.text3, marginBottom: spacing.sm },
   accountItem: {
     flexDirection: "row",
     alignItems: "center",
