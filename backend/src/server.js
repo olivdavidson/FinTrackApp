@@ -6,7 +6,7 @@ const connectDB = require("./config/database");
 const authRoutes = require("./routes/auth");
 const dataRoutes = require("./routes/data");
 
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const app = express();
 const PORT = process.env.PORT || 4000;
