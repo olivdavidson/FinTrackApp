@@ -1,8 +1,21 @@
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { Account, Category, Transaction } from "./mockData";
 
-export const API_BASE_URL =
-  Platform.OS === "android" ? "http://10.0.2.2:4000" : "http://localhost:4000";
+const getDebugHost = () => {
+  const debuggerHost = (Constants.manifest as any)?.debuggerHost;
+  if (debuggerHost) {
+    const host = debuggerHost.split(":")[0];
+    if (host === "localhost" || host === "127.0.0.1") {
+      return Platform.OS === "android" ? "10.0.2.2" : "localhost";
+    }
+    return host;
+  }
+
+  return Platform.OS === "android" ? "10.0.2.2" : "localhost";
+};
+
+export const API_BASE_URL = `http://192.168.1.70:4000`; //{getDebugHost()}
 
 export type LoginResponse = {
   user: {
@@ -121,7 +134,7 @@ export async function getTransactions(
 }
 
 export async function createTransaction(
-  transaction: Omit<Transaction, "id" | "date" | "iconColor" | "iconBg">,
+  transaction: Omit<Transaction, "id" | "iconColor" | "iconBg">,
   accessToken: string,
   refreshToken: string,
   onTokenRefreshed: (

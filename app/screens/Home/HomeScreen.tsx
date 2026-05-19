@@ -1,5 +1,6 @@
 import AmountText from "@/app/components/common/AmountText";
 import Avatar from "@/app/components/common/Avatar";
+import Card from "@/app/components/common/Card";
 import { colors, radius, spacing } from "@/app/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -8,12 +9,12 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
@@ -134,6 +135,8 @@ const HomeScreen = () => {
       .reduce((sum, tx) => sum + tx.amount, 0),
   );
   const recentTxs = transactions.slice(0, 4);
+  const isEmptyState =
+    accounts.length === 0 || (totalBalance === 0 && transactions.length === 0);
 
   return (
     <ScrollView
@@ -230,6 +233,29 @@ const HomeScreen = () => {
       </View>
 
       {/* Recent Transactions */}
+      {isEmptyState && (
+        <View style={styles.section}>
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>Vamos começar?</Text>
+            <Text style={styles.emptyDesc}>
+              Seu saldo está zerado. Adicione sua primeira entrada ou saída para
+              começar a controlar suas finanças.
+            </Text>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={() => {
+                const parentNavigation = navigation.getParent<TabNavProp>();
+                // Navega para a aba de Transações e tenta abrir o formulário
+                parentNavigation?.navigate("Transactions", {
+                  screen: "AddTransaction",
+                } as any);
+              }}
+            >
+              <Text style={styles.ctaButtonText}>Criar primeira transação</Text>
+            </TouchableOpacity>
+          </Card>
+        </View>
+      )}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recentes</Text>
@@ -365,6 +391,28 @@ const styles = StyleSheet.create({
   txInfo: { flex: 1 },
   txName: { fontSize: 14, fontWeight: "500", color: colors.text },
   txDate: { fontSize: 12, color: colors.text3, marginTop: 2 },
+  emptyCard: {
+    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 6,
+  },
+  emptyDesc: { fontSize: 13, color: colors.text3, marginBottom: spacing.md },
+  ctaButton: {
+    backgroundColor: colors.accent,
+    paddingVertical: 12,
+    borderRadius: radius.lg,
+    alignItems: "center",
+  },
+  ctaButtonText: { color: colors.bg, fontWeight: "700" },
 });
 
 // Workaround para importar Platform nos styles

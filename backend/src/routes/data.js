@@ -3,148 +3,12 @@ const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-const transactions = [
-  {
-    id: "1",
-    name: "Salário",
-    category: "Renda",
-    amount: 4200,
-    type: "income",
-    date: "2025-05-06",
-    icon: "bank",
-    iconColor: "#4AE1C8",
-    iconBg: "rgba(74,225,200,0.15)",
-  },
-  {
-    id: "2",
-    name: "Mercado Extra",
-    category: "Mercado",
-    amount: -187.4,
-    type: "expense",
-    date: "2025-05-06",
-    icon: "cart",
-    iconColor: "#F87171",
-    iconBg: "rgba(248,113,113,0.15)",
-  },
-  {
-    id: "3",
-    name: "Uber",
-    category: "Transporte",
-    amount: -34.9,
-    type: "expense",
-    date: "2025-05-05",
-    icon: "car",
-    iconColor: "#60A5FA",
-    iconBg: "rgba(96,165,250,0.15)",
-  },
-  {
-    id: "4",
-    name: "Netflix",
-    category: "Entretenimento",
-    amount: -39.9,
-    type: "expense",
-    date: "2025-05-05",
-    icon: "tv",
-    iconColor: "#F59E0B",
-    iconBg: "rgba(245,158,11,0.15)",
-  },
-  {
-    id: "5",
-    name: "Farmácia",
-    category: "Saúde",
-    amount: -52.0,
-    type: "expense",
-    date: "2025-05-05",
-    icon: "pill",
-    iconColor: "#A78BFA",
-    iconBg: "rgba(167,139,250,0.15)",
-  },
-  {
-    id: "6",
-    name: "iFood",
-    category: "Alimentação",
-    amount: -62.5,
-    type: "expense",
-    date: "2025-05-04",
-    icon: "food",
-    iconColor: "#F59E0B",
-    iconBg: "rgba(245,158,11,0.15)",
-  },
-  {
-    id: "7",
-    name: "PIX recebido",
-    category: "Transferência",
-    amount: 150.0,
-    type: "income",
-    date: "2025-05-04",
-    icon: "cash",
-    iconColor: "#4AE1C8",
-    iconBg: "rgba(74,225,200,0.15)",
-  },
-  {
-    id: "8",
-    name: "Posto Shell",
-    category: "Transporte",
-    amount: -210.0,
-    type: "expense",
-    date: "2025-05-03",
-    icon: "gas",
-    iconColor: "#60A5FA",
-    iconBg: "rgba(96,165,250,0.15)",
-  },
-  {
-    id: "9",
-    name: "Aniversário Maria",
-    category: "Presentes",
-    amount: -89.0,
-    type: "expense",
-    date: "2025-05-02",
-    icon: "gift",
-    iconColor: "#FB7185",
-    iconBg: "rgba(251,113,133,0.15)",
-  },
-  {
-    id: "10",
-    name: "Academia",
-    category: "Saúde",
-    amount: -68.0,
-    type: "expense",
-    date: "2025-05-01",
-    icon: "heart",
-    iconColor: "#14B8A6",
-    iconBg: "rgba(20,184,166,0.15)",
-  },
-];
+// Start with no transactions so new users see zero balance and add their own entries
+const transactions = [];
 
-const accounts = [
-  {
-    id: "1",
-    name: "Nubank",
-    bank: "Conta corrente",
-    balance: 8240.0,
-    icon: "bank",
-    iconColor: "#60A5FA",
-    iconBg: "rgba(96,165,250,0.15)",
-  },
-  {
-    id: "2",
-    name: "Itaú",
-    bank: "Poupança",
-    balance: 3607.5,
-    icon: "piggy-bank",
-    iconColor: "#4AE1C8",
-    iconBg: "rgba(74,225,200,0.15)",
-  },
-  {
-    id: "3",
-    name: "Dinheiro",
-    bank: "Em espécie",
-    balance: 1000.0,
-    icon: "cash",
-    iconColor: "#F59E0B",
-    iconBg: "rgba(245,158,11,0.15)",
-  },
-];
+// No example accounts — start with an empty accounts list so new users
+// see zero balance and must add their own accounts/transactions.
+const accounts = [];
 
 const categories = [
   {
@@ -220,7 +84,7 @@ router.get("/transactions", requireAuth, (req, res) => {
 });
 
 router.post("/transactions", requireAuth, (req, res) => {
-  const { name, amount, type, category, icon } = req.body;
+  const { name, amount, type, category, icon, date } = req.body;
 
   if (!name || amount == null || !type || !category) {
     return res.status(400).json({
@@ -230,13 +94,23 @@ router.post("/transactions", requireAuth, (req, res) => {
   }
 
   const categoryInfo = categories.find((cat) => cat.name === category);
+  const transactionDate = (() => {
+    if (date) {
+      const parsed = new Date(date);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().slice(0, 10);
+      }
+    }
+    return new Date().toISOString().slice(0, 10);
+  })();
+
   const newTransaction = {
     id: `${Date.now()}`,
     name,
     category,
     amount: Number(amount),
     type,
-    date: new Date().toISOString().slice(0, 10),
+    date: transactionDate,
     icon: icon || categoryInfo?.icon || "cash",
     iconColor: categoryInfo?.color || "#4AE1C8",
     iconBg: categoryInfo?.colorBg || "rgba(74,225,200,0.15)",

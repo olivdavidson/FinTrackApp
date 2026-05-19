@@ -1,14 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React from "react";
+import React, { useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SectionTitle from "../../components/common/SectionTitle";
@@ -64,14 +65,31 @@ const ProfileScreen = () => {
   const navigation = useNavigation<NavProp>();
   const { user, signOut } = useAuth();
 
-  const handleLogout = async () => {
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = () => {
+    if (__DEV__) {
+      Alert.alert("DEBUG", "Logout button pressed (dev)");
+    }
+
     Alert.alert("Sair", "Deseja realmente encerrar a sessão?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Sair",
         style: "destructive",
         onPress: async () => {
-          await signOut();
+          setLoggingOut(true);
+          try {
+            await signOut();
+          } catch (err) {
+            console.warn("Erro ao sair:", err);
+            Alert.alert(
+              "Erro",
+              "Não foi possível encerrar a sessão. Tente novamente.",
+            );
+          } finally {
+            setLoggingOut(false);
+          }
         },
       },
     ]);
@@ -89,6 +107,7 @@ const ProfileScreen = () => {
     <ScrollView
       style={[styles.container, { paddingTop: insets.top }]}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="always"
     >
       <View style={styles.header}>
         <Text style={typography.h2}>Perfil</Text>
@@ -198,14 +217,23 @@ const ProfileScreen = () => {
       </View>
 
       {/* Logout */}
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        activeOpacity={0.8}
+      <Pressable
+        style={({ pressed }) => [
+          styles.logoutBtn,
+          pressed && styles.logoutBtnPressed,
+          loggingOut && styles.logoutBtnDisabled,
+        ]}
         onPress={handleLogout}
+        disabled={loggingOut}
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        accessibilityRole="button"
+        accessible
       >
         <Ionicons name="log-out-outline" size={20} color={colors.red} />
-        <Text style={styles.logoutText}>Sair da conta</Text>
-      </TouchableOpacity>
+        <Text style={styles.logoutText}>
+          {loggingOut ? "Saindo..." : "Sair da conta"}
+        </Text>
+      </Pressable>
 
       <View style={{ height: spacing.xl }} />
     </ScrollView>
@@ -329,6 +357,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+  },
+  logoutBtnPressed: {
+    opacity: 0.8,
+  },
+  logoutBtnDisabled: {
+    opacity: 0.6,
   },
   logoutText: { fontSize: 15, fontWeight: "500", color: colors.red },
 });

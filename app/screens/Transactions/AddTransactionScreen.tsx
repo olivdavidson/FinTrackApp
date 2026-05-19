@@ -25,6 +25,7 @@ interface TransactionFormData {
   amount: string;
   type: "income" | "expense";
   categoryId: string;
+  date: string;
 }
 
 const TRANSACTION_TYPES = [
@@ -53,6 +54,7 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
     amount: "",
     type: "expense",
     categoryId: mockCategories[0]?.id || "",
+    date: new Date().toISOString().slice(0, 10),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -61,6 +63,18 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
   const selectedCategory = mockCategories.find(
     (c) => c.id === formData.categoryId,
   );
+
+  const isValidDate = (value: string) => {
+    if (!value) return false;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsedDate = new Date(value + "T00:00:00");
+    return !Number.isNaN(parsedDate.getTime());
+  };
+
+  const formatDateDisplay = (value: string) => {
+    if (!isValidDate(value)) return value;
+    return new Date(value + "T00:00:00").toLocaleDateString("pt-BR");
+  };
 
   const handleAddTransaction = async () => {
     // Validação
@@ -78,6 +92,10 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
 
     if (!formData.categoryId) {
       newErrors.category = "Selecione uma categoria";
+    }
+
+    if (!formData.date.trim() || !isValidDate(formData.date.trim())) {
+      newErrors.date = "Digite uma data válida (YYYY-MM-DD)";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -101,6 +119,7 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
           type: formData.type,
           category: selectedCategory?.name ?? "",
           icon: selectedCategory?.icon ?? "cash",
+          date: formData.date.trim(),
         },
         accessToken,
         refreshToken,
@@ -228,6 +247,27 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
             )}
           </View>
 
+          {/* Data */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Data</Text>
+            <View
+              style={[styles.inputContainer, errors.date && styles.inputError]}
+            >
+              <TextInput
+                style={styles.input}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.text3}
+                keyboardType="numbers-and-punctuation"
+                value={formData.date}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, date: text });
+                  if (errors.date) setErrors({ ...errors, date: "" });
+                }}
+              />
+            </View>
+            {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+          </View>
+
           {/* Categoria */}
           <View style={styles.section}>
             <Text style={styles.label}>Categoria</Text>
@@ -292,6 +332,13 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Transação:</Text>
                 <Text style={styles.summaryValue}>{formData.name}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Data:</Text>
+                <Text style={styles.summaryValue}>
+                  {formatDateDisplay(formData.date)}
+                </Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>

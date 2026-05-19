@@ -90,6 +90,24 @@ const RegisterScreen = () => {
 
     try {
       await register(name.trim(), email.trim(), password);
+      // Após cadastro bem-sucedido, navegar para a aba principal de Transações
+      // e abrir o formulário de Adicionar Transação para o usuário criar
+      // sua primeira entrada/saída.
+      const rootNav = navigation.getParent();
+      if (rootNav) {
+        try {
+          rootNav.navigate(
+            "Main" as any,
+            {
+              screen: "Transactions",
+              params: { screen: "AddTransaction" },
+            } as any,
+          );
+        } catch (e) {
+          // Fallback: apenas navegar para a aba Transactions
+          rootNav.navigate("Main" as any, { screen: "Transactions" } as any);
+        }
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Erro ao cadastrar usuário.",
