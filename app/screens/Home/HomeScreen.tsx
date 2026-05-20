@@ -4,17 +4,20 @@ import Card from "@/app/components/common/Card";
 import { colors, radius, spacing } from "@/app/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import { useNavigation } from "@react-navigation/native";
+import {
+  CompositeNavigationProp,
+  useNavigation,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import {
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
@@ -25,8 +28,11 @@ import { Account, Transaction } from "../../utils/mockData";
 // Workaround para importar Platform nos styles
 //import { Platform } from "react-native";
 
-type NavProp = NativeStackNavigationProp<HomeStackParamList>;
 type TabNavProp = BottomTabNavigationProp<MainTabParamList>;
+type NavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeStackParamList>,
+  TabNavProp
+>;
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 const txIconMap: Record<string, IoniconName> = {
@@ -149,8 +155,14 @@ const HomeScreen = () => {
           <Text style={styles.greeting}>Bom dia, 👋</Text>
           <Text style={styles.name}>{userName}</Text>
         </View>
-        <Avatar initials={initials} size={40} />
+        <Avatar
+          initials={initials}
+          size={40}
+          onPress={() => navigation.navigate("Profile")}
+        />
       </View>
+      {loading && null}
+      {error && null}
 
       {/* Balance Card */}
       <LinearGradient

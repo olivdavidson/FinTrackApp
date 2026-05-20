@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useMemo, useState } from "react";
+import { useIsFocused } from "@react-navigation/native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -24,6 +25,7 @@ const FILTERS: { key: Period; label: string }[] = [
 
 const AnalyticsScreen = () => {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { accessToken, refreshToken, updateTokens } = useAuth();
   const [period, setPeriod] = useState<Period>("mes");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -31,32 +33,33 @@ const AnalyticsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadAnalytics() {
-      if (!accessToken || !refreshToken) return;
-      setLoading(true);
-      setError(null);
+  const loadAnalytics = useCallback(async () => {
+    if (!accessToken || !refreshToken) return;
+    setLoading(true);
+    setError(null);
 
-      try {
-        const [transactionsData, categoriesData] = await Promise.all([
-          getTransactions(accessToken, refreshToken, updateTokens),
-          getCategories(accessToken, refreshToken, updateTokens),
-        ]);
-        setTransactions(transactionsData);
-        setCategories(categoriesData);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Erro ao carregar dados de análises.",
-        );
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const [transactionsData, categoriesData] = await Promise.all([
+        getTransactions(accessToken, refreshToken, updateTokens),
+        getCategories(accessToken, refreshToken, updateTokens),
+      ]);
+      setTransactions(transactionsData);
+      setCategories(categoriesData);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Erro ao carregar dados de análises.",
+      );
+    } finally {
+      setLoading(false);
     }
-
-    loadAnalytics();
   }, [accessToken, refreshToken, updateTokens]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    loadAnalytics();
+  }, [isFocused, loadAnalytics]);
 
   const getPeriodStart = (period: Period) => {
     const now = new Date();
@@ -172,11 +175,38 @@ const AnalyticsScreen = () => {
       {} as Record<string, number>,
     );
 
-    return categories
-      .map((category) => ({
-        ...category,
-        total: totalsByCategory[category.name] ?? 0,
-      }))
+    const totalSum = Object.values(totalsByCategory).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+
+    const knownCategories = categories.map((category) => ({
+      ...category,
+      total: totalsByCategory[category.name] ?? 0,
+      percentage: totalSum
+        ? Math.round(((totalsByCategory[category.name] ?? 0) / totalSum) * 100)
+        : 0,
+    }));
+
+    const unknownCategories = Object.entries(totalsByCategory)
+      .filter(
+        ([name]) => !categories.some((category) => category.name === name),
+      )
+      .map(
+        ([name, total], index) =>
+          ({
+            id: `unknown-${index}`,
+            name,
+            icon: "pricetag",
+            color: colors.text,
+            colorBg: colors.card,
+            total,
+            count: 0,
+            percentage: totalSum ? Math.round((total / totalSum) * 100) : 0,
+          }) as Category,
+      );
+
+    return [...knownCategories, ...unknownCategories]
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
   }, [categories, filteredTransactions]);
