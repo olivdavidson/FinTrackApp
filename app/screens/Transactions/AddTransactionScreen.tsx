@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -15,8 +15,8 @@ import Card from "../../components/common/Card";
 import { useAuth } from "../../context/AuthContext";
 import { AddTransactionScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
-import { createTransaction } from "../../utils/api";
-import { mockCategories } from "../../utils/mockData";
+import { createTransaction, getCategories } from "../../utils/api";
+import type { Category } from "../../utils/mockData";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -49,18 +49,48 @@ const categoryIconMap: Record<string, IoniconName> = {
 const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
   const insets = useSafeAreaInsets();
   const { accessToken, refreshToken, updateTokens } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<TransactionFormData>({
     name: "",
     amount: "",
     type: "expense",
-    categoryId: mockCategories[0]?.id || "",
+    categoryId: "",
     date: new Date().toISOString().slice(0, 10),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const selectedCategory = mockCategories.find(
+  useEffect(() => {
+    async function loadCategories() {
+      if (!accessToken || !refreshToken) return;
+
+      setLoadingCategories(true);
+      setSubmitError(null);
+
+      try {
+        const data = await getCategories(accessToken, refreshToken, updateTokens);
+        setCategories(data);
+        setFormData((current) => ({
+          ...current,
+          categoryId: current.categoryId || data[0]?.id || "",
+        }));
+      } catch (error) {
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Erro ao carregar categorias.",
+        );
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
+
+    loadCategories();
+  }, [accessToken, refreshToken, updateTokens]);
+
+  const selectedCategory = categories.find(
     (c) => c.id === formData.categoryId,
   );
 
@@ -276,7 +306,10 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.categoriesContainer}
             >
-              {mockCategories.map((category) => (
+              {loadingCategories && (
+                <Text style={styles.categoryLoading}>Carregando...</Text>
+              )}
+              {!loadingCategories && categories.map((category) => (
                 <TouchableOpacity
                   key={category.id}
                   style={[
@@ -537,6 +570,11 @@ const styles = StyleSheet.create({
   categoryNameActive: {
     color: colors.accent,
     fontWeight: "600",
+  },
+  categoryLoading: {
+    color: colors.text3,
+    fontSize: 12,
+    paddingVertical: spacing.lg,
   },
   summaryCard: {
     backgroundColor: colors.card2,
