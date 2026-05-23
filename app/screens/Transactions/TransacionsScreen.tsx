@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -87,17 +88,11 @@ const TransactionsScreen = ({ navigation }: TransactionsScreenProps) => {
     }
   }, [accessToken, refreshToken, updateTokens]);
 
-  useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
+  useFocusEffect(
+    useCallback(() => {
       loadTransactions();
-    });
-
-    return unsubscribe;
-  }, [navigation, loadTransactions]);
+    }, [loadTransactions]),
+  );
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {

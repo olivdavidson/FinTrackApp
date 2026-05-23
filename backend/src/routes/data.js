@@ -6,9 +6,10 @@ const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-const DEFAULT_CATEGORIES = [
+const DEFAULT_EXPENSE_CATEGORIES = [
   {
     name: "Mercado",
+    type: "expense",
     icon: "cart",
     color: "#F87171",
     colorBg: "rgba(248,113,113,0.15)",
@@ -16,6 +17,7 @@ const DEFAULT_CATEGORIES = [
   },
   {
     name: "Transporte",
+    type: "expense",
     icon: "car",
     color: "#60A5FA",
     colorBg: "rgba(96,165,250,0.15)",
@@ -23,6 +25,7 @@ const DEFAULT_CATEGORIES = [
   },
   {
     name: "Alimentação",
+    type: "expense",
     icon: "food",
     color: "#F59E0B",
     colorBg: "rgba(245,158,11,0.15)",
@@ -30,6 +33,7 @@ const DEFAULT_CATEGORIES = [
   },
   {
     name: "Entretenimento",
+    type: "expense",
     icon: "tv",
     color: "#A78BFA",
     colorBg: "rgba(167,139,250,0.15)",
@@ -37,6 +41,7 @@ const DEFAULT_CATEGORIES = [
   },
   {
     name: "Saúde",
+    type: "expense",
     icon: "heart",
     color: "#4AE1C8",
     colorBg: "rgba(74,225,200,0.15)",
@@ -44,11 +49,36 @@ const DEFAULT_CATEGORIES = [
   },
   {
     name: "Presentes",
+    type: "expense",
     icon: "gift",
     color: "#FB7185",
     colorBg: "rgba(251,113,133,0.15)",
     budget: 150,
   },
+];
+
+const DEFAULT_INCOME_CATEGORIES = [
+  {
+    name: "Transferência bancária",
+    type: "income",
+    icon: "bank",
+    color: "#60A5FA",
+    colorBg: "rgba(96,165,250,0.15)",
+    budget: 0,
+  },
+  {
+    name: "Pix",
+    type: "income",
+    icon: "cash",
+    color: "#4AE1C8",
+    colorBg: "rgba(74,225,200,0.15)",
+    budget: 0,
+  },
+];
+
+const DEFAULT_CATEGORIES = [
+  ...DEFAULT_EXPENSE_CATEGORIES,
+  ...DEFAULT_INCOME_CATEGORIES,
 ];
 
 const parseDate = (date) => {
@@ -72,17 +102,57 @@ const normalizeAmount = (amount, type) => {
   return type === "expense" ? -numericAmount : numericAmount;
 };
 
-const ensureDefaultCategories = async (userId) => {
-  const existingCount = await Category.countDocuments({ user: userId });
+const getAccountVisuals = (bank = "") => {
+  const normalizedBank = bank.toLowerCase();
 
-  if (existingCount === 0) {
-    await Category.insertMany(
-      DEFAULT_CATEGORIES.map((category) => ({ ...category, user: userId })),
-      { ordered: false },
-    );
+  if (normalizedBank.includes("nubank")) {
+    return {
+      icon: "bank",
+      iconColor: "#A78BFA",
+      iconBg: "rgba(167,139,250,0.15)",
+    };
   }
 
-  return Category.find({ user: userId }).sort({ name: 1 });
+  if (normalizedBank.includes("itaú") || normalizedBank.includes("itau")) {
+    return {
+      icon: "bank",
+      iconColor: "#F59E0B",
+      iconBg: "rgba(245,158,11,0.15)",
+    };
+  }
+
+  if (normalizedBank.includes("dinheiro") || normalizedBank.includes("cash")) {
+    return {
+      icon: "cash",
+      iconColor: "#4AE1C8",
+      iconBg: "rgba(74,225,200,0.15)",
+    };
+  }
+
+  return {
+    icon: "bank",
+    iconColor: "#60A5FA",
+    iconBg: "rgba(96,165,250,0.15)",
+  };
+};
+
+const ensureDefaultCategories = async (userId) => {
+  await Category.updateMany(
+    { user: userId, type: { $exists: false } },
+    { $set: { type: "expense" } },
+  );
+
+  await Promise.all(
+    DEFAULT_CATEGORIES.map((category) =>
+      Category.updateOne(
+        { user: userId, type: category.type, name: category.name },
+        { $setOnInsert: { ...category, user: userId } },
+        { upsert: true },
+      ),
+    ),
+  );
+
+  return Category.find({ user: userId }).sort({ type: 1, name: 1 });
 };
 
 const ensureDefaultAccount = async (userId) => {
@@ -104,9 +174,39 @@ const ensureDefaultAccount = async (userId) => {
   return account;
 };
 
+const resolveTransactionAccount = async (userId, payload) => {
+  const { accountId, accountName, accountBank } = payload;
+
+  if (accountId) {
+    const account = await Account.findOne({ _id: accountId, user: userId });
+    if (account) return account;
+  }
+
+  if (accountName?.trim()) {
+    const name = accountName.trim();
+    const bank = accountBank?.trim() || "Conta manual";
+    const existing = await Account.findOne({ user: userId, name, bank });
+
+    if (existing) return existing;
+
+    return Account.create({
+      user: userId,
+      name,
+      bank,
+      balance: 0,
+      ...getAccountVisuals(`${name} ${bank}`),
+      isDefault: false,
+    });
+  }
+
+  return ensureDefaultAccount(userId);
+};
+
 const buildCategoryStats = async (userId) => {
   const [categories, expenseTotals] = await Promise.all([
-    ensureDefaultCategories(userId),
+    ensureDefaultCategories(userId).then((items) =>
+      items.filter((category) => category.type === "expense"),
+    ),
     Transaction.aggregate([
       { $match: { user: userId, type: "expense" } },
       {
@@ -185,7 +285,7 @@ router.post("/transactions", requireAuth, async (req, res) => {
     }
 
     const [account, categories] = await Promise.all([
-      ensureDefaultAccount(req.user._id),
+      resolveTransactionAccount(req.user._id, req.body),
       ensureDefaultCategories(req.user._id),
     ]);
     const categoryInfo = categories.find((cat) => cat.name === category);
@@ -234,7 +334,14 @@ router.get("/accounts", requireAuth, async (req, res) => {
 
 router.get("/categories", requireAuth, async (req, res) => {
   try {
-    const categories = await buildCategoryStats(req.user._id);
+    const { type } = req.query;
+    const categories =
+      type === "income" || type === "expense"
+        ? await ensureDefaultCategories(req.user._id).then((items) =>
+            items.filter((category) => category.type === type),
+          )
+        : await buildCategoryStats(req.user._id);
+
     res.json({ success: true, data: categories });
   } catch (error) {
     console.error("[GET /data/categories]", error);

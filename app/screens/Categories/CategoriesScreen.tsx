@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
     Platform,
     ScrollView,
@@ -39,8 +39,7 @@ const CategoriesScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadCategories() {
+  const loadCategories = useCallback(async () => {
       if (!accessToken || !refreshToken) return;
       setLoading(true);
       setError(null);
@@ -50,6 +49,7 @@ const CategoriesScreen = () => {
           accessToken,
           refreshToken,
           updateTokens,
+          "expense",
         );
         setCategories(data);
       } catch (err) {
@@ -59,10 +59,13 @@ const CategoriesScreen = () => {
       } finally {
         setLoading(false);
       }
-    }
-
-    loadCategories();
   }, [accessToken, refreshToken, updateTokens]);
+
+  useFocusEffect(
+    useCallback(() => {
+    loadCategories();
+    }, [loadCategories]),
+  );
 
   const totalExpense = categories.reduce((sum, c) => sum + c.total, 0);
   const maxTotal = categories.length > 0 ? categories[0].total : 1;

@@ -14,6 +14,12 @@ const categorySchema = new mongoose.Schema(
       trim: true,
       maxlength: 80,
     },
+    type: {
+      type: String,
+      enum: ["income", "expense"],
+      required: true,
+      default: "expense",
+    },
     icon: {
       type: String,
       required: true,
@@ -48,7 +54,7 @@ const categorySchema = new mongoose.Schema(
   },
 );
 
-categorySchema.index({ user: 1, name: 1 }, { unique: true });
+categorySchema.index({ user: 1, type: 1, name: 1 }, { unique: true });
 
 const Category = mongoose.model("Category", categorySchema);
 module.exports = Category;

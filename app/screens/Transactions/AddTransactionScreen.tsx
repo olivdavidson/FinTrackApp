@@ -15,8 +15,8 @@ import Card from "../../components/common/Card";
 import { useAuth } from "../../context/AuthContext";
 import { AddTransactionScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
-import { createTransaction, getCategories } from "../../utils/api";
-import type { Category } from "../../utils/mockData";
+import { createTransaction, getAccounts, getCategories } from "../../utils/api";
+import type { Account, Category } from "../../utils/mockData";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -25,6 +25,9 @@ interface TransactionFormData {
   amount: string;
   type: "income" | "expense";
   categoryId: string;
+  accountId: string;
+  accountName: string;
+  accountBank: string;
   date: string;
 }
 
@@ -50,16 +53,21 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
   const insets = useSafeAreaInsets();
   const { accessToken, refreshToken, updateTokens } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [formData, setFormData] = useState<TransactionFormData>({
     name: "",
     amount: "",
     type: "expense",
     categoryId: "",
+    accountId: "",
+    accountName: "",
+    accountBank: "",
     date: new Date().toISOString().slice(0, 10),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,11 +78,18 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
       setSubmitError(null);
 
       try {
-        const data = await getCategories(accessToken, refreshToken, updateTokens);
+        const data = await getCategories(
+          accessToken,
+          refreshToken,
+          updateTokens,
+          formData.type,
+        );
         setCategories(data);
         setFormData((current) => ({
           ...current,
-          categoryId: current.categoryId || data[0]?.id || "",
+          categoryId: data.some((category) => category.id === current.categoryId)
+            ? current.categoryId
+            : data[0]?.id || "",
         }));
       } catch (error) {
         setSubmitError(
@@ -88,11 +103,39 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
     }
 
     loadCategories();
+  }, [accessToken, refreshToken, updateTokens, formData.type]);
+
+  useEffect(() => {
+    async function loadAccounts() {
+      if (!accessToken || !refreshToken) return;
+
+      setLoadingAccounts(true);
+      setSubmitError(null);
+
+      try {
+        const data = await getAccounts(accessToken, refreshToken, updateTokens);
+        setAccounts(data);
+        setFormData((current) => ({
+          ...current,
+          accountId: current.accountId || data[0]?.id || "new",
+        }));
+      } catch (error) {
+        setSubmitError(
+          error instanceof Error ? error.message : "Erro ao carregar contas.",
+        );
+      } finally {
+        setLoadingAccounts(false);
+      }
+    }
+
+    loadAccounts();
   }, [accessToken, refreshToken, updateTokens]);
 
   const selectedCategory = categories.find(
     (c) => c.id === formData.categoryId,
   );
+  const selectedAccount = accounts.find((acc) => acc.id === formData.accountId);
+  const isNewAccount = formData.accountId === "new";
 
   const isValidDate = (value: string) => {
     if (!value) return false;
@@ -124,6 +167,14 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
       newErrors.category = "Selecione uma categoria";
     }
 
+    if (!formData.accountId) {
+      newErrors.account = "Selecione uma conta";
+    }
+
+    if (isNewAccount && !formData.accountName.trim()) {
+      newErrors.accountName = "Digite o nome da conta";
+    }
+
     if (!formData.date.trim() || !isValidDate(formData.date.trim())) {
       newErrors.date = "Digite uma data válida (YYYY-MM-DD)";
     }
@@ -150,6 +201,11 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
           category: selectedCategory?.name ?? "",
           icon: selectedCategory?.icon ?? "cash",
           date: formData.date.trim(),
+          accountId: isNewAccount ? undefined : formData.accountId,
+          accountName: isNewAccount ? formData.accountName.trim() : undefined,
+          accountBank: isNewAccount
+            ? formData.accountBank.trim() || "Conta manual"
+            : undefined,
         },
         accessToken,
         refreshToken,
@@ -229,6 +285,7 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
                     setFormData({
                       ...formData,
                       type: type.id as "income" | "expense",
+                      categoryId: "",
                     })
                   }
                 >
@@ -296,6 +353,110 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
               />
             </View>
             {errors.date && <Text style={styles.errorText}>{errors.date}</Text>}
+          </View>
+
+          {/* Conta */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Conta vinculada</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.accountsContainer}
+            >
+              {loadingAccounts && (
+                <Text style={styles.categoryLoading}>Carregando...</Text>
+              )}
+              {!loadingAccounts &&
+                accounts.map((account) => (
+                  <TouchableOpacity
+                    key={account.id}
+                    style={[
+                      styles.accountButton,
+                      formData.accountId === account.id &&
+                        styles.accountButtonActive,
+                    ]}
+                    onPress={() =>
+                      setFormData({ ...formData, accountId: account.id })
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.accountButtonName,
+                        formData.accountId === account.id &&
+                          styles.accountButtonNameActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {account.name}
+                    </Text>
+                    <Text style={styles.accountButtonBalance}>
+                      R${" "}
+                      {account.balance.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              {!loadingAccounts && (
+                <TouchableOpacity
+                  style={[
+                    styles.accountButton,
+                    isNewAccount && styles.accountButtonActive,
+                  ]}
+                  onPress={() => setFormData({ ...formData, accountId: "new" })}
+                >
+                  <Text
+                    style={[
+                      styles.accountButtonName,
+                      isNewAccount && styles.accountButtonNameActive,
+                    ]}
+                  >
+                    Nova conta
+                  </Text>
+                  <Text style={styles.accountButtonBalance}>manual</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+            {errors.account && (
+              <Text style={styles.errorText}>{errors.account}</Text>
+            )}
+            {isNewAccount && (
+              <View style={styles.newAccountFields}>
+                <View
+                  style={[
+                    styles.inputContainer,
+                    errors.accountName && styles.inputError,
+                  ]}
+                >
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Ex: Nubank"
+                    placeholderTextColor={colors.text3}
+                    value={formData.accountName}
+                    onChangeText={(text) => {
+                      setFormData({ ...formData, accountName: text });
+                      if (errors.accountName) {
+                        setErrors({ ...errors, accountName: "" });
+                      }
+                    }}
+                  />
+                </View>
+                {errors.accountName && (
+                  <Text style={styles.errorText}>{errors.accountName}</Text>
+                )}
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Tipo ou banco: conta corrente, poupança..."
+                    placeholderTextColor={colors.text3}
+                    value={formData.accountBank}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, accountBank: text })
+                    }
+                  />
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Categoria */}
@@ -393,6 +554,15 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
                   ]}
                 >
                   {formData.type === "income" ? "Entrada" : "Saída"}
+                </Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Conta:</Text>
+                <Text style={styles.summaryValue}>
+                  {isNewAccount
+                    ? formData.accountName || "Nova conta"
+                    : selectedAccount?.name}
                 </Text>
               </View>
               <View style={styles.summaryDivider} />
@@ -543,6 +713,40 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     gap: spacing.md,
     paddingRight: spacing.lg,
+  },
+  accountsContainer: {
+    gap: spacing.md,
+    paddingRight: spacing.lg,
+  },
+  accountButton: {
+    minWidth: 132,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  accountButtonActive: {
+    backgroundColor: colors.accentBg,
+    borderColor: colors.accent,
+  },
+  accountButtonName: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  accountButtonNameActive: {
+    color: colors.accent,
+  },
+  accountButtonBalance: {
+    color: colors.text3,
+    fontSize: 12,
+  },
+  newAccountFields: {
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   categoryButton: {
     alignItems: "center",

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Card from "../../components/common/Card";
@@ -68,8 +69,7 @@ const BalanceScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
+  const loadData = useCallback(async () => {
       if (!accessToken || !refreshToken) return;
       setLoading(true);
       setError(null);
@@ -96,10 +96,13 @@ const BalanceScreen = () => {
       } finally {
         setLoading(false);
       }
-    }
-
-    loadData();
   }, [accessToken, refreshToken, updateTokens]);
+
+  useFocusEffect(
+    useCallback(() => {
+    loadData();
+    }, [loadData]),
+  );
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
   const totalIncome = transactions

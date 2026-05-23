@@ -6,11 +6,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import {
   CompositeNavigationProp,
+  useFocusEffect,
   useNavigation,
 } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -93,8 +94,7 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadSummary() {
+  const loadSummary = useCallback(async () => {
       if (!accessToken || !refreshToken) return;
       setLoading(true);
       setError(null);
@@ -116,10 +116,13 @@ const HomeScreen = () => {
       } finally {
         setLoading(false);
       }
-    }
-
-    loadSummary();
   }, [accessToken, refreshToken, updateTokens]);
+
+  useFocusEffect(
+    useCallback(() => {
+    loadSummary();
+    }, [loadSummary]),
+  );
 
   const userName = user?.name ?? "Usuário";
   const initials = userName

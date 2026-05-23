@@ -133,8 +133,17 @@ export async function getTransactions(
   );
 }
 
+export type CreateTransactionPayload = Omit<
+  Transaction,
+  "id" | "iconColor" | "iconBg"
+> & {
+  accountId?: string;
+  accountName?: string;
+  accountBank?: string;
+};
+
 export async function createTransaction(
-  transaction: Omit<Transaction, "id" | "iconColor" | "iconBg">,
+  transaction: CreateTransactionPayload,
   accessToken: string,
   refreshToken: string,
   onTokenRefreshed: (
@@ -181,9 +190,12 @@ export async function getCategories(
     accessToken: string,
     refreshToken: string,
   ) => Promise<void>,
+  type?: "income" | "expense",
 ): Promise<Category[]> {
+  const query = type ? `?type=${type}` : "";
+
   return authFetch(
-    `${API_BASE_URL}/data/categories`,
+    `${API_BASE_URL}/data/categories${query}`,
     { method: "GET" },
     accessToken,
     refreshToken,

@@ -41,7 +41,7 @@ const AnalyticsScreen = () => {
     try {
       const [transactionsData, categoriesData] = await Promise.all([
         getTransactions(accessToken, refreshToken, updateTokens),
-        getCategories(accessToken, refreshToken, updateTokens),
+        getCategories(accessToken, refreshToken, updateTokens, "expense"),
       ]);
       setTransactions(transactionsData);
       setCategories(categoriesData);
