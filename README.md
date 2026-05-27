@@ -1,5 +1,6 @@
-# Welcome to your Expo app 👋
+# Aplicativo Gestor de Finanças FinTrackApp 👋
 
+Aplicativo de Gestão de Finanças como Projeto referente ao curso de Análise e Desenvolvimento de Sistemas na Faculdade Martha Falcão - Wyden, matéria de Programação para Dispositivos Móveis em Android.
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
 ## Get started
@@ -10,11 +11,19 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
+````
 2. Start the app
 
+Para iniciar o App, utilizamos o comando
    ```bash
    npx expo start
-   ```
+````
+
+Para iniciar o Backend, em outro terminal, navegue até o diretório /backend/ dentro da pasta do FinTrackApp e execute o comando:
+
+```bash
+   npm start
+```
 
 In the output, you'll find options to open the app in a
 
@@ -25,26 +34,15 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-## Get a fresh project
+##
 
-When you're ready, run:
+## Especificações do Projeto
 
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
+Para mais detalhes de desenvolvimento há uma pasta /docs/ dentro da Pasta raiz do projeto onde há
+detalhes completos do app.
+Os links abaixo são da documentação do Expo utilizadas no decorrer desse projeto.
 
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+##
