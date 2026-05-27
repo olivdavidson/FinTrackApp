@@ -18,7 +18,9 @@ const getDebugHost = () => {
       const url = new URL(envUrl);
       return url.hostname;
     } catch (error) {
-      console.warn("URL de API inválida");
+      console.warn(
+        "URL de API inválida" + envUrl + ", usando localhost como fallback.",
+      );
     }
   }
 
