@@ -166,6 +166,49 @@ export async function createTransaction(
   );
 }
 
+export async function updateTransaction(
+  transactionId: string,
+  transaction: CreateTransactionPayload,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<Transaction> {
+  return authFetch(
+    `${API_BASE_URL}/data/transactions/${transactionId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(transaction),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function deleteTransaction(
+  transactionId: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<void> {
+  await authFetch(
+    `${API_BASE_URL}/data/transactions/${transactionId}`,
+    { method: "DELETE" },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
 export async function getAccounts(
   accessToken: string,
   refreshToken: string,
@@ -177,6 +220,49 @@ export async function getAccounts(
   return authFetch(
     `${API_BASE_URL}/data/accounts`,
     { method: "GET" },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function updateAccount(
+  accountId: string,
+  account: Pick<Account, "name" | "bank">,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<Account> {
+  return authFetch(
+    `${API_BASE_URL}/data/accounts/${accountId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(account),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function deleteAccount(
+  accountId: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<void> {
+  await authFetch(
+    `${API_BASE_URL}/data/accounts/${accountId}`,
+    { method: "DELETE" },
     accessToken,
     refreshToken,
     onTokenRefreshed,
@@ -197,6 +283,82 @@ export async function getCategories(
   return authFetch(
     `${API_BASE_URL}/data/categories${query}`,
     { method: "GET" },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export type CategoryPayload = {
+  name: string;
+  type: "income" | "expense";
+  icon?: string;
+  color?: string;
+  colorBg?: string;
+  budget?: number;
+};
+
+export async function createCategory(
+  category: CategoryPayload,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<Category> {
+  return authFetch(
+    `${API_BASE_URL}/data/categories`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(category),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function updateCategory(
+  categoryId: string,
+  category: Partial<CategoryPayload>,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<Category> {
+  return authFetch(
+    `${API_BASE_URL}/data/categories/${categoryId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(category),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function deleteCategory(
+  categoryId: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<void> {
+  await authFetch(
+    `${API_BASE_URL}/data/categories/${categoryId}`,
+    { method: "DELETE" },
     accessToken,
     refreshToken,
     onTokenRefreshed,

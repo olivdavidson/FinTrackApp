@@ -1,36 +1,38 @@
 # Relatório técnico e funcional - FinTrackApp
 
-**Data:** 23/05/2026  
+**Data:** 25/05/2026  
 **Projeto analisado:** FinTrackAppExpo / FinTrackApp  
-**Tipo:** aplicativo mobile de controle financeiro pessoal com backend próprio para autenticação e API de dados.
+**Tipo:** aplicativo mobile de controle financeiro pessoal com backend próprio para autenticação, dados financeiros persistidos e gestão manual de contas.
 
 ## 1. Visão geral
 
 O FinTrackApp é um aplicativo de finanças pessoais desenvolvido com **Expo + React Native** no frontend e **Node.js + Express + MongoDB/Mongoose** no backend. A experiência principal é mobile, em orientação retrato, com tema escuro, navegação por abas inferiores e fluxos separados para autenticação, início, saldo, análises, transações e perfil.
 
-O aplicativo já possui autenticação real via API própria, persistência local de sessão com AsyncStorage e rotas protegidas no backend por JWT. A parte financeira está parcialmente integrada: o frontend consome endpoints autenticados de transações, contas e categorias, mas o backend mantém transações e contas em memória e categorias fixas, ou seja, os dados financeiros ainda não estão persistidos em banco.
+A versão atual já possui autenticação real via API própria, persistência local de sessão com AsyncStorage, rotas protegidas por JWT e dados financeiros persistidos no MongoDB. Transações, contas e categorias passaram a ser isoladas por usuário, evitando que dados de um usuário apareçam para outro.
+
+O app também passou a trabalhar com **contas manuais vinculadas**. Como não existe integração direta com bancos, o usuário informa manualmente a conta na tela de nova transação. Cada transação atualiza o saldo da conta escolhida, e a tela de saldo soma todas as contas para exibir o saldo total.
 
 ## 2. Tecnologias usadas
 
 | Camada | Tecnologia | Uso no projeto |
 |---|---|---|
 | Aplicativo mobile | Expo ~54.0.33 | Runtime, build e execução do app React Native. |
-| UI mobile | React Native 0.81.5 | Construção das telas, componentes, listas, formulários e estilos. |
-| Linguagem do app | TypeScript ~5.9.2 | Tipagem do frontend, navegação e contratos de dados. |
-| Framework de UI | React 19.1.0 | Componentização, estado, contexto e ciclo de vida. |
-| Navegação | React Navigation 7 | Stack navigation e bottom tabs. |
-| Ícones | @expo/vector-icons / react-native-vector-icons | Ícones Ionicons e MaterialCommunityIcons usados nas telas. |
-| Persistência local | @react-native-async-storage/async-storage | Armazenamento de usuário, access token e refresh token no dispositivo. |
-| Backend | Node.js + Express 4 | Servidor HTTP, API REST, middlewares e rotas. |
-| Banco de dados | MongoDB + Mongoose 7 | Persistência de usuários e autenticação. |
-| Autenticação | JWT + bcryptjs | Access token, refresh token, hash de senha e sessão. |
-| Segurança API | express-rate-limit + express-validator | Limite de tentativas de login e validação de payload. |
+| UI mobile | React Native 0.81.5 | Construção das telas, listas, formulários, navegação e estilos. |
+| Linguagem do app | TypeScript ~5.9.2 | Tipagem do frontend, navegação, contratos de API e estruturas de dados. |
+| Framework de UI | React 19.1.0 | Componentização, hooks, estado local e contexto global de autenticação. |
+| Navegação | React Navigation 7 | Bottom tabs, native stack navigation e recarregamento por foco. |
+| Ícones | @expo/vector-icons / react-native-vector-icons | Ícones Ionicons e MaterialCommunityIcons. |
+| Persistência local | AsyncStorage | Armazenamento local de usuário, access token e refresh token. |
+| Backend | Node.js + Express 4 | API REST, middlewares, rotas e regras de negócio financeiras. |
+| Banco de dados | MongoDB + Mongoose 7 | Persistência de usuários, transações, contas e categorias. |
+| Autenticação | JWT + bcryptjs | Access token, refresh token, hash de senha e sessão multi-dispositivo. |
+| Segurança API | express-rate-limit + express-validator | Rate limit de login e validação de payload. |
 | Configuração | dotenv | Variáveis de ambiente do backend. |
 | Qualidade | ESLint / eslint-config-expo | Lint do projeto Expo. |
 
 ## 3. Estrutura do projeto
 
-```text
+~~~text
 FinTrackApp/
 ├─ App.tsx                         # Bootstrap do app, providers e navegação raiz
 ├─ app.json                        # Configuração Expo
@@ -41,23 +43,26 @@ FinTrackApp/
 │  ├─ navigation/                  # Stacks, abas e tipos de navegação
 │  ├─ screens/                     # Telas do aplicativo
 │  ├─ theme/index.ts               # Cores, espaçamentos, tipografia e sombras
-│  └─ utils/                       # API, storage e mockData
+│  └─ utils/                       # API, storage e mockData/tipos
 ├─ backend/
 │  ├─ package.json                 # Dependências e scripts do backend
 │  └─ src/
 │     ├─ config/database.js        # Conexão MongoDB
 │     ├─ middleware/auth.js        # Proteção por Bearer token
-│     ├─ models/User.js            # Schema de usuário
+│     ├─ models/User.js            # Usuários/autenticação
+│     ├─ models/Account.js         # Contas financeiras manuais
+│     ├─ models/Category.js        # Categorias de entrada/saída
+│     ├─ models/Transaction.js     # Transações por usuário e conta
 │     ├─ routes/auth.js            # Endpoints de autenticação
-│     ├─ routes/data.js            # Endpoints de dados financeiros
+│     ├─ routes/data.js            # Endpoints financeiros persistidos
 │     ├─ utils/jwt.js              # Geração e verificação JWT
 │     └─ server.js                 # Entrada do servidor Express
 └─ assets/images/                  # Ícones, splash e imagens Expo
-```
+~~~
 
 ## 4. Arquitetura geral
 
-```text
+~~~text
 +----------------------+       HTTP/JSON        +--------------------------+
 | App Expo/ReactNative | ---------------------> | Backend Express          |
 | TypeScript           |                        | Node.js                  |
@@ -69,35 +74,40 @@ FinTrackApp/
 +----------------------+                        +--------------------------+
 | Sessão local         |                        | MongoDB                  |
 | user/access/refresh  |                        | users                    |
-+----------------------+                        +--------------------------+
-```
++----------------------+                        | accounts                 |
+                                                | categories               |
+                                                | transactions             |
+                                                +--------------------------+
+~~~
 
-O app decide a rota inicial em `RootNavigator`: se existe usuário autenticado, mostra as abas principais; se não existe, mostra o fluxo de login/cadastro. O contexto de autenticação tenta restaurar a sessão local, valida o usuário com `/auth/me` e, se necessário, renova tokens com `/auth/refresh`.
+O app decide a rota inicial em <code>RootNavigator</code>: se existe usuário autenticado, mostra as abas principais; se não existe, mostra o fluxo de login/cadastro. O contexto de autenticação tenta restaurar a sessão local, valida o usuário com <code>/auth/me</code> e, se necessário, renova tokens com <code>/auth/refresh</code>.
+
+As telas financeiras consomem a API autenticada. O backend usa <code>req.user._id</code> em todas as consultas financeiras, garantindo isolamento por usuário. A tela de nova transação permite selecionar ou criar uma conta manual; o backend registra a transação, vincula à conta e atualiza o saldo da conta.
 
 ## 5. Frontend
 
 ### 5.1 Framework e linguagem
 
-O frontend usa **Expo**, **React Native** e **TypeScript**. O arquivo `App.tsx` configura:
+O frontend usa **Expo**, **React Native** e **TypeScript**. O arquivo <code>App.tsx</code> configura:
 
-- `GestureHandlerRootView` para gestos.
-- `SafeAreaProvider` para áreas seguras em iOS/Android.
-- `NavigationContainer` para navegação.
-- `AuthProvider` para estado global de autenticação.
-- `StatusBar` com estilo claro.
-- `SplashScreen` controlada manualmente durante a inicialização.
+- <code>GestureHandlerRootView</code> para gestos.
+- <code>SafeAreaProvider</code> para áreas seguras em iOS/Android.
+- <code>NavigationContainer</code> para navegação.
+- <code>AuthProvider</code> para estado global de autenticação.
+- <code>StatusBar</code> com estilo claro.
+- <code>SplashScreen</code> controlada manualmente durante a inicialização.
 
 ### 5.2 Design system
 
-O tema fica em `app/theme/index.ts` e define uma identidade visual escura:
+O tema fica em <code>app/theme/index.ts</code> e define uma identidade visual escura:
 
 | Elemento | Definição |
 |---|---|
-| Fundo principal | `#0A0F1E` |
-| Cards | `#1E2A3A`, `#243040` |
-| Acento | Verde `#4FFFB0` |
-| Feedback financeiro | Verde para entradas/economia, vermelho para saídas, azul/âmbar/roxo para categorias. |
-| Tipografia | Escalas de `h1`, `h2`, `body`, `caption`, `label`. |
+| Fundo principal | <code>#0A0F1E</code> |
+| Cards | <code>#1E2A3A</code>, <code>#243040</code> |
+| Acento | Verde <code>#4FFFB0</code> |
+| Feedback financeiro | Verde para entradas/economia, vermelho para saídas, azul/âmbar/roxo para categorias e contas. |
+| Tipografia | Escalas de <code>h1</code>, <code>h2</code>, <code>body</code>, <code>caption</code>, <code>label</code>. |
 | Espaçamento | Escala de 4 a 32 px. |
 | Bordas | Radius de 8 a 24 px e full pill. |
 
@@ -105,18 +115,18 @@ O tema fica em `app/theme/index.ts` e define uma identidade visual escura:
 
 | Componente | Função |
 |---|---|
-| `AmountText` | Exibe valores monetários com cor/estilo conforme entrada ou saída. |
-| `Avatar` | Mostra iniciais ou avatar do usuário. |
-| `Badge` | Indicadores pequenos de status/categoria. |
-| `Card` | Contêiner visual com tema do app. |
-| `Header` | Cabeçalho de tela com título e ações. |
-| `ScreenWrapper` | Wrapper padrão com safe area, scroll e fundo. |
-| `SectionTitle` | Título de seção. |
-| `TransactionItem` | Linha de transação com ícone, categoria, data e valor. |
+| <code>AmountText</code> | Exibe valores monetários com cor/estilo conforme entrada ou saída. |
+| <code>Avatar</code> | Mostra iniciais ou avatar do usuário. |
+| <code>Badge</code> | Indicadores pequenos de status/categoria. |
+| <code>Card</code> | Contêiner visual com tema do app. |
+| <code>Header</code> | Cabeçalho de tela com título e ações. |
+| <code>ScreenWrapper</code> | Wrapper padrão com safe area, scroll e fundo. |
+| <code>SectionTitle</code> | Título de seção. |
+| <code>TransactionItem</code> | Linha de transação com ícone, categoria, data e valor. |
 
-### 5.4 Navegação
+### 5.4 Navegação e atualização de dados
 
-```text
+~~~text
 RootNavigator
 ├─ AuthNavigator
 │  ├─ Login
@@ -137,73 +147,96 @@ RootNavigator
       ├─ Security
       ├─ AppSettings
       └─ Help
-```
+~~~
 
-As abas inferiores têm os rótulos: **Início**, **Saldo**, **Análises**, **Transações** e **Perfil**. A aba ativa usa o verde de destaque e um pequeno indicador superior.
+As telas financeiras foram ajustadas para recarregar dados ao ganharem foco usando padrões do React Navigation. Isso evita a necessidade de sair e entrar novamente no app para visualizar transações, saldos ou categorias recém-criados.
 
 ## 6. Backend
 
 ### 6.1 Framework, linguagem e banco
 
-O backend usa **JavaScript em Node.js**, com **Express** para API REST e **Mongoose** para acesso ao MongoDB. A entrada é `backend/src/server.js`, que aplica CORS, JSON body parser, registra rotas e só inicia o servidor após conectar ao banco.
+O backend usa **JavaScript em Node.js**, com **Express** para API REST e **Mongoose** para acesso ao MongoDB. A entrada é <code>backend/src/server.js</code>, que aplica CORS, JSON body parser, registra rotas e só inicia o servidor após conectar ao banco.
 
 ### 6.2 Endpoints de autenticação
 
 | Método | Rota | Protegida | Finalidade |
 |---|---|---:|---|
-| GET | `/` | Não | Health check simples do backend. |
-| POST | `/auth/register` | Não | Cria usuário local com nome, e-mail e senha. |
-| POST | `/auth/login` | Não | Autentica e retorna usuário, access token e refresh token. |
-| POST | `/auth/social-login` | Não | Cria/recupera conta social por provider/providerId. |
-| POST | `/auth/refresh` | Não | Rotaciona refresh token e emite novo access token. |
-| POST | `/auth/logout` | Sim | Remove o refresh token do dispositivo atual. |
-| POST | `/auth/logout-all` | Sim | Remove todos os refresh tokens do usuário. |
-| GET | `/auth/me` | Sim | Retorna o usuário autenticado. |
+| GET | <code>/</code> | Não | Health check simples do backend. |
+| POST | <code>/auth/register</code> | Não | Cria usuário local com nome, e-mail e senha. |
+| POST | <code>/auth/login</code> | Não | Autentica e retorna usuário, access token e refresh token. |
+| POST | <code>/auth/social-login</code> | Não | Cria/recupera conta social por provider/providerId. |
+| POST | <code>/auth/refresh</code> | Não | Rotaciona refresh token e emite novo access token. |
+| POST | <code>/auth/logout</code> | Sim | Remove o refresh token do dispositivo atual. |
+| POST | <code>/auth/logout-all</code> | Sim | Remove todos os refresh tokens do usuário. |
+| GET | <code>/auth/me</code> | Sim | Retorna o usuário autenticado. |
 
 ### 6.3 Endpoints financeiros
 
 | Método | Rota | Protegida | Persistência atual | Finalidade |
 |---|---|---:|---|---|
-| GET | `/data/transactions` | Sim | Memória | Lista transações. |
-| POST | `/data/transactions` | Sim | Memória | Cria uma nova transação. |
-| GET | `/data/accounts` | Sim | Memória | Lista contas. |
-| GET | `/data/categories` | Sim | Constante em código | Lista categorias. |
-| GET | `/data/summary` | Sim | Calculado em memória | Retorna entradas, saídas, saldo e contagens. |
+| GET | <code>/data/transactions</code> | Sim | MongoDB | Lista transações do usuário autenticado. |
+| POST | <code>/data/transactions</code> | Sim | MongoDB | Cria transação, vincula conta e atualiza saldo. |
+| GET | <code>/data/accounts</code> | Sim | MongoDB | Lista contas manuais do usuário. |
+| GET | <code>/data/categories</code> | Sim | MongoDB | Lista categorias de saída com estatísticas. |
+| GET | <code>/data/categories?type=income</code> | Sim | MongoDB | Lista categorias de entrada: Transferência bancária e Pix. |
+| GET | <code>/data/categories?type=expense</code> | Sim | MongoDB | Lista categorias de saída. |
+| GET | <code>/data/summary</code> | Sim | MongoDB | Retorna entradas, saídas, saldo e contagens. |
 
-### 6.4 Modelo de usuário
+### 6.4 Modelos de dados
 
-O schema `User` possui:
+| Modelo | Arquivo | Responsabilidade |
+|---|---|---|
+| <code>User</code> | <code>backend/src/models/User.js</code> | Usuário, login local/social, refresh tokens e dados de segurança. |
+| <code>Account</code> | <code>backend/src/models/Account.js</code> | Conta financeira manual, saldo, ícone, banco/tipo e usuário dono. |
+| <code>Category</code> | <code>backend/src/models/Category.js</code> | Categoria de entrada ou saída, orçamento, cor, ícone e usuário dono. |
+| <code>Transaction</code> | <code>backend/src/models/Transaction.js</code> | Lançamento financeiro vinculado a usuário, conta, categoria, data e tipo. |
 
-- `name`, `email`, `password` para login local.
-- `provider` e `providerId` para login social.
-- `avatar`, `isEmailVerified`, tokens de verificação e reset.
-- `refreshTokens` para suportar múltiplos dispositivos.
-- `isActive`, `lastLoginAt`, `createdAt` e `updatedAt`.
+### 6.5 Isolamento por usuário
 
-A senha é hasheada com bcrypt antes de salvar. Campos sensíveis são removidos no `toJSON`.
+Todas as rotas financeiras usam o usuário autenticado como filtro. A consulta de transações, contas e categorias sempre inclui o identificador do usuário. Com isso, os dados são persistidos no MongoDB e ficam isolados por conta.
+
+~~~text
+Usuário autenticado
+-> req.user._id
+-> Account.find({ user: req.user._id })
+-> Category.find({ user: req.user._id })
+-> Transaction.find({ user: req.user._id })
+~~~
+
+### 6.6 Regras financeiras atuais
+
+| Regra | Comportamento |
+|---|---|
+| Conta padrão | Se o usuário ainda não tiver conta, o backend cria uma “Carteira principal”. |
+| Conta manual | A tela de transação permite criar uma nova conta informando nome e tipo/banco. |
+| Saldo da conta | Ao criar uma transação, o backend soma ou subtrai o valor no saldo da conta vinculada. |
+| Saldo total | A tela de saldo soma o saldo de todas as contas vinculadas. |
+| Entrada | Valor positivo. Categorias permitidas: Transferência bancária e Pix. |
+| Saída | Valor negativo. Categorias existentes são mantidas. |
+| Categorias por usuário | Categorias padrão são criadas automaticamente para cada usuário. |
 
 ## 7. API no frontend
 
-O arquivo `app/utils/api.ts` centraliza chamadas HTTP. A URL atual está fixa como:
+O arquivo <code>app/utils/api.ts</code> centraliza chamadas HTTP. A URL atual está fixa como:
 
-```ts
-export const API_BASE_URL = `http://192.168.1.70:4000`;
-```
+~~~ts
+export const API_BASE_URL = "http://192.168.1.70:4000";
+~~~
 
-Também existe uma função `getDebugHost`, mas ela não está sendo usada na constante final. Para desenvolvimento em múltiplos computadores, emuladores e redes, o ideal é trocar essa URL fixa por variável de ambiente ou lógica baseada no host do Expo.
+Também existe uma função <code>getDebugHost</code>, mas ela não está sendo usada na constante final. Para desenvolvimento em múltiplos computadores, emuladores e redes, o ideal é trocar essa URL fixa por variável de ambiente ou lógica baseada no host do Expo.
 
 Chamadas principais:
 
-- `loginWithEmail`
-- `registerWithEmail`
-- `logout`
-- `refreshAccessToken`
-- `getCurrentUser`
-- `getTransactions`
-- `createTransaction`
-- `getAccounts`
-- `getCategories`
-- `authFetch` com renovação automática do token em caso de `401`.
+- <code>loginWithEmail</code>
+- <code>registerWithEmail</code>
+- <code>logout</code>
+- <code>refreshAccessToken</code>
+- <code>getCurrentUser</code>
+- <code>getTransactions</code>
+- <code>createTransaction</code>
+- <code>getAccounts</code>
+- <code>getCategories</code>, agora com filtro opcional <code>income</code> ou <code>expense</code>.
+- <code>authFetch</code> com renovação automática do token em caso de <code>401</code>.
 
 ## 8. Estado atual dos dados
 
@@ -213,453 +246,508 @@ Chamadas principais:
 | Senhas | Hash bcrypt no backend. |
 | Sessão mobile | Persistida no AsyncStorage. |
 | Tokens | Access token e refresh token com rotação. |
-| Transações | Array em memória no backend; mockData também existe no frontend. |
-| Contas | Array vazio em memória no backend; mockData existe no frontend. |
-| Categorias | Lista fixa no backend e mockData no frontend. |
-| Resumo financeiro | Calculado a partir das transações em memória. |
+| Transações | Persistidas no MongoDB e isoladas por usuário. |
+| Contas | Persistidas no MongoDB, criadas manualmente via tela de transação e isoladas por usuário. |
+| Categorias | Persistidas no MongoDB, criadas por usuário e separadas por tipo de entrada/saída. |
+| Resumo financeiro | Calculado a partir de transações e contas persistidas. |
+| Saldo total | Soma dos saldos das contas vinculadas. |
 
-## 9. Telas e mockups
+## 9. Funcionalidades recentes adicionadas
+
+| Funcionalidade | Descrição | Impacto |
+|---|---|---|
+| Persistência financeira | Transações, contas e categorias agora usam MongoDB. | Dados permanecem após reiniciar servidor/app. |
+| Isolamento por usuário | Todos os dados financeiros são filtrados por <code>req.user._id</code>. | Privacidade e separação correta entre contas. |
+| Recarregamento por foco | Telas financeiras recarregam ao voltar para elas. | Dados novos aparecem sem logout/login. |
+| Contas vinculadas manuais | Usuário escolhe ou cria conta na tela de nova transação. | App controla saldo por conta sem conexão bancária. |
+| Saldo total por contas | Tela de saldo soma os saldos das contas vinculadas. | O saldo total reflete a soma real dos lançamentos por conta. |
+| Categorias por tipo | Entrada usa Pix/Transferência; saída mantém categorias de gasto. | Formulário fica mais coerente e reduz erro de classificação. |
+
+## 10. Telas e mockups
 
 Os mockups abaixo são wireframes textuais baseados nos componentes e textos encontrados no código. Eles representam estrutura, hierarquia e ações esperadas de cada tela.
 
-### 9.1 Login
+### 10.1 Login
 
-Arquivo: `app/screens/Auth/LoginScreen.tsx`
+Arquivo: <code>app/screens/Auth/LoginScreen.tsx</code>
 
 **Objetivo:** autenticar usuário existente e permitir navegação para cadastro.
 
-```text
-┌────────────────────────────────────┐
-│              [wallet]              │
-│              FinTrack              │
-│ Controle total do seu dinheiro     │
-├────────────────────────────────────┤
-│ Bem-vindo de volta                 │
-│ Entre na sua conta para continuar  │
-│                                    │
-│ E-mail                             │
-│ [ seu@email.com                  ] │
-│ Senha                              │
-│ [ ••••••••                      ] │
-│                 Esqueceu a senha?  │
-│                                    │
-│ [ Entrar                         ] │
-│                                    │
-│          ou continue com           │
-│ [ Google ]          [ Facebook ]   │
-│                                    │
-│ Não tem conta? Cadastre-se         │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+|              [wallet]              |
+|              FinTrack              |
+| Controle total do seu dinheiro     |
++------------------------------------+
+| Bem-vindo de volta                 |
+| Entre na sua conta para continuar  |
+|                                    |
+| E-mail                             |
+| [ seu@email.com                  ] |
+| Senha                              |
+| [ ********                      ] |
+|                 Esqueceu a senha?  |
+|                                    |
+| [ Entrar                         ] |
+|                                    |
+|          ou continue com           |
+| [ Google ]          [ Facebook ]   |
+|                                    |
+| Não tem conta? Cadastre-se         |
++------------------------------------+
+~~~
 
-### 9.2 Cadastro
+### 10.2 Cadastro
 
-Arquivo: `app/screens/Auth/RegisterScreen.tsx`
+Arquivo: <code>app/screens/Auth/RegisterScreen.tsx</code>
 
 **Objetivo:** criar conta local com nome, e-mail, senha e confirmação.
 
-```text
-┌────────────────────────────────────┐
-│              [wallet]              │
-│              FinTrack              │
-│ Cadastre-se e comece a controlar   │
-│ seu dinheiro                       │
-├────────────────────────────────────┤
-│ Crie sua conta                     │
-│ Preencha os dados abaixo           │
-│                                    │
-│ Nome completo                      │
-│ [ Seu nome                       ] │
-│ E-mail                             │
-│ [ seu@email.com                  ] │
-│ Senha                              │
-│ [ ••••••••                      ] │
-│ Força da senha  [barra]            │
-│ Confirmar senha                    │
-│ [ Repita a senha                 ] │
-│                                    │
-│ [ Cadastrar                      ] │
-│                                    │
-│ Já tem uma conta? Entrar           │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+|              [wallet]              |
+|              FinTrack              |
+| Cadastre-se e comece a controlar   |
+| seu dinheiro                       |
++------------------------------------+
+| Crie sua conta                     |
+| Preencha os dados abaixo           |
+| Nome completo                      |
+| [ Seu nome                       ] |
+| E-mail                             |
+| [ seu@email.com                  ] |
+| Senha                              |
+| [ ********                      ] |
+| Força da senha  [barra]            |
+| Confirmar senha                    |
+| [ Repita a senha                 ] |
+| [ Cadastrar                      ] |
+| Já tem uma conta? Entrar           |
++------------------------------------+
+~~~
 
-### 9.3 Início
+### 10.3 Início
 
-Arquivo: `app/screens/Home/HomeScreen.tsx`
+Arquivo: <code>app/screens/Home/HomeScreen.tsx</code>
 
-**Objetivo:** apresentar visão rápida do saldo, entradas, saídas e transações recentes.
+**Objetivo:** apresentar visão rápida do saldo, entradas, saídas, atalhos e transações recentes.
 
-```text
-┌────────────────────────────────────┐
-│ Bom dia, [Nome] 👋        [avatar] │
-├────────────────────────────────────┤
-│ Saldo disponível                   │
-│ R$ 12.847,50                       │
-│ +3,2% este mês                     │
-├────────────────────────────────────┤
-│ [ Entradas ]        [ Saídas ]     │
-│ R$ 4.200,00        R$ 1.832,00     │
-├────────────────────────────────────┤
-│ Categorias / atalhos               │
-│ [Mercado] [Transporte] [Saúde]     │
-├────────────────────────────────────┤
-│ Recentes                 Ver todas │
-│ • Salário                 +R$ ...  │
-│ • Mercado Extra           -R$ ...  │
-│ • Uber                    -R$ ...  │
-└────────────────────────────────────┘
-│ Início | Saldo | Análises | Trans. │
-```
+~~~text
++------------------------------------+
+| Bom dia, [Nome]           [avatar] |
++------------------------------------+
+| Saldo disponível                   |
+| R$ 12.847,50                       |
+| +3,2% este mês                     |
++------------------------------------+
+| Entradas             Saídas        |
+| R$ 4.200,00          R$ 1.832,00   |
++------------------------------------+
+| Atalhos                             |
+| [Transações] [Análises] [Categorias]|
+| [Saldo]                             |
++------------------------------------+
+| Recentes                 Ver todas |
+| - Pix recebido            +R$ ...  |
+| - Mercado Extra           -R$ ...  |
+| - Uber                    -R$ ...  |
++------------------------------------+
+| Início | Saldo | Análises | Trans. |
+~~~
 
-### 9.4 Categorias
+### 10.4 Categorias
 
-Arquivo: `app/screens/Categories/CategoriesScreen.tsx`
+Arquivo: <code>app/screens/Categories/CategoriesScreen.tsx</code>
 
-**Objetivo:** listar categorias de gastos, total do mês e distribuição percentual.
+**Objetivo:** listar categorias de gastos, total do mês e distribuição percentual. Esta tela usa categorias de saída.
 
-```text
-┌────────────────────────────────────┐
-│ ← Categorias                       │
-├────────────────────────────────────┤
-│ TOTAL GASTO EM MAI                 │
-│ R$ 1.832,00                        │
-├────────────────────────────────────┤
-│ Mercado        R$ 680   37%  >     │
-│ [barra de progresso]               │
-│ Transporte     R$ 410   22%  >     │
-│ [barra de progresso]               │
-│ Alimentação    R$ 328   18%  >     │
-│ [barra de progresso]               │
-│ Entretenimento R$ 205   11%  >     │
-│ Saúde          R$ 120    7%  >     │
-│ Presentes      R$  89    5%  >     │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+| <- Categorias                      |
++------------------------------------+
+| TOTAL GASTO EM MAI                 |
+| R$ 1.832,00                        |
++------------------------------------+
+| Mercado        R$ 680   37%   >    |
+| [barra de progresso]               |
+| Transporte     R$ 410   22%   >    |
+| [barra de progresso]               |
+| Alimentação    R$ 328   18%   >    |
+| Entretenimento R$ 205   11%   >    |
+| Saúde          R$ 120    7%   >    |
+| Presentes      R$  89    5%   >    |
++------------------------------------+
+~~~
 
-### 9.5 Detalhe da categoria
+### 10.5 Detalhe da categoria
 
-Arquivo: `app/screens/Categories/CategoryDetailScreen.tsx`
+Arquivo: <code>app/screens/Categories/CategoryDetailScreen.tsx</code>
 
 **Objetivo:** exibir detalhes de uma categoria selecionada.
 
-```text
-┌────────────────────────────────────┐
-│ ← [Categoria]                      │
-├────────────────────────────────────┤
-│ [ícone]                            │
-│ Total gasto                        │
-│ R$ xxx,xx                          │
-├────────────────────────────────────┤
-│ Transações     [quantidade]        │
-│ Percentual     [xx%]               │
-│ Orçamento      [R$ xxx,xx]         │
-├────────────────────────────────────┤
-│ Progresso do orçamento             │
-│ [████████░░░░░░]                   │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+| <- [Categoria]                     |
++------------------------------------+
+| [ícone]                            |
+| Total gasto                        |
+| R$ xxx,xx                          |
++------------------------------------+
+| Transações     [quantidade]        |
+| Percentual     [xx%]               |
+| Orçamento      [R$ xxx,xx]         |
++------------------------------------+
+| Progresso do orçamento             |
+| [########......]                   |
++------------------------------------+
+~~~
 
-### 9.6 Saldo
+### 10.6 Saldo
 
-Arquivo: `app/screens/Balance/BalanceScreen.tsx`
+Arquivo: <code>app/screens/Balance/BalanceScreen.tsx</code>
 
-**Objetivo:** consolidar saldo total e listar contas financeiras.
+**Objetivo:** consolidar saldo total e listar contas vinculadas manuais.
 
-```text
-┌────────────────────────────────────┐
-│ Saldo                              │
-├────────────────────────────────────┤
-│ SALDO TOTAL                        │
-│ R$ 12.847,50                       │
-│ +R$1.360 economizados este mês     │
-├────────────────────────────────────┤
-│ Contas                             │
-│ Nubank       Conta corrente R$ ... │
-│ Itaú         Poupança       R$ ... │
-│ Dinheiro     Em espécie     R$ ... │
-│                                    │
-│ Estado vazio possível:             │
-│ Nenhuma conta encontrada           │
-└────────────────────────────────────┘
-│ Início | Saldo | Análises | Trans. │
-```
+~~~text
++------------------------------------+
+| Saldo                              |
+| Resumo financeiro de [usuário]     |
++------------------------------------+
+| SALDO TOTAL                        |
+| R$ 12.847,50                       |
+| +R$1.360 economizados este mês     |
++------------------------------------+
+| Entradas este mês                  |
+| [barra] R$ 4.200 / R$ 4.200        |
+| Saídas este mês                    |
+| [barra] R$ 1.832 / R$ 4.200        |
++------------------------------------+
+| Contas vinculadas                  |
+| [ícone] Nubank                     |
+|        Conta corrente    R$ 8.240  |
+| [ícone] Itaú                       |
+|        Poupança          R$ 3.607  |
+| [ícone] Carteira principal         |
+|        Saldo geral       R$ 1.000  |
++------------------------------------+
+| Início | Saldo | Análises | Trans. |
+~~~
 
-### 9.7 Análises
+### 10.7 Análises
 
-Arquivo: `app/screens/Analytcs/AnalytcsScreen.tsx`
+Arquivo: <code>app/screens/Analytcs/AnalytcsScreen.tsx</code>
 
-**Objetivo:** mostrar indicadores e gráficos/visualizações de entradas, saídas e economia.
+**Objetivo:** mostrar indicadores e gráficos/visualizações de entradas, saídas e economia. As categorias de maiores gastos usam apenas categorias de saída.
 
-```text
-┌────────────────────────────────────┐
-│ Análises                           │
-├────────────────────────────────────┤
-│ [Entradas] [Saídas] [Economia]     │
-│ R$ ...     R$ ...    R$ ...        │
-├────────────────────────────────────┤
-│ Entradas vs. Saídas                │
-│ Jan  ████ income  ███ expense      │
-│ Fev  ████ income  ███ expense      │
-│ Mar  ████ income  ███ expense      │
-│ Abr  █████        ██               │
-│ Mai  ████         ██               │
-├────────────────────────────────────┤
-│ Maiores gastos                     │
-│ Mercado         37%                │
-│ Transporte      22%                │
-│ Alimentação     18%                │
-└────────────────────────────────────┘
-│ Início | Saldo | Análises | Trans. │
-```
+~~~text
++------------------------------------+
+| Análises                           |
++------------------------------------+
+| [Dia] [Semana] [Mês]               |
++------------------------------------+
+| Entradas   Saídas    Economia      |
+| R$ ...     R$ ...    R$ ...        |
++------------------------------------+
+| Entradas vs. Saídas                |
+| Jan  #### entrada  ### saída       |
+| Fev  #### entrada  ### saída       |
+| Mar  #### entrada  ### saída       |
+| Abr  #####         ##              |
+| Mai  ####          ##              |
++------------------------------------+
+| Maiores gastos                     |
+| Mercado         37%                |
+| Transporte      22%                |
+| Alimentação     18%                |
++------------------------------------+
+| Início | Saldo | Análises | Trans. |
+~~~
 
-### 9.8 Transações
+### 10.8 Transações
 
-Arquivo: `app/screens/Transactions/TransacionsScreen.tsx`
+Arquivo: <code>app/screens/Transactions/TransacionsScreen.tsx</code>
 
-**Objetivo:** listar e buscar transações, além de abrir o cadastro de nova transação.
+**Objetivo:** listar e buscar transações, além de abrir o cadastro de nova transação. A tela recarrega ao ganhar foco.
 
-```text
-┌────────────────────────────────────┐
-│ Transações                    [+]  │
-├────────────────────────────────────┤
-│ [ Buscar transação...          x ] │
-├────────────────────────────────────┤
-│ • Salário        Renda      +R$... │
-│ • Mercado Extra  Mercado    -R$... │
-│ • Uber           Transporte -R$... │
-│ • Netflix        Entreten.  -R$... │
-│                                    │
-│ Estado vazio possível:             │
-│ Nenhuma transação encontrada       │
-└────────────────────────────────────┘
-│ Início | Saldo | Análises | Trans. │
-```
+~~~text
++------------------------------------+
+| Transações                    [+]  |
++------------------------------------+
+| [ Buscar transação...          x ] |
++------------------------------------+
+| [Todas] [Entradas] [Saídas]        |
+| [Mercado] [Transporte]             |
++------------------------------------+
+| Hoje                               |
+| - Pix recebido             +R$...  |
+| - Mercado Extra           -R$...   |
+| - Uber                    -R$...   |
+|                                    |
+| Estado vazio:                      |
+| Nenhuma transação encontrada       |
++------------------------------------+
+| Início | Saldo | Análises | Trans. |
+~~~
 
-### 9.9 Nova transação
+### 10.9 Nova transação
 
-Arquivo: `app/screens/Transactions/AddTransactionScreen.tsx`
+Arquivo: <code>app/screens/Transactions/AddTransactionScreen.tsx</code>
 
-**Objetivo:** cadastrar entrada ou saída financeira.
+**Objetivo:** cadastrar entrada ou saída financeira, escolhendo conta vinculada e categoria compatível com o tipo.
 
-```text
-┌────────────────────────────────────┐
-│ ← Nova Transação                   │
-├────────────────────────────────────┤
-│ Nome da Transação                  │
-│ [ Ex: Compra no Mercado          ] │
-│                                    │
-│ Tipo de Transação                  │
-│ [ Entrada ] [ Saída ]              │
-│                                    │
-│ Valor                              │
-│ R$ [ 0,00                        ] │
-│ Data                               │
-│ [ YYYY-MM-DD                     ] │
-│ Categoria                          │
-│ [ Mercado v ]                      │
-├────────────────────────────────────┤
-│ Resumo                             │
-│ Transação: ...                     │
-│ Data: ...                          │
-│ Categoria: ...                     │
-│ Tipo: ...                          │
-│ Valor: ...                         │
-├────────────────────────────────────┤
-│ [ Cancelar ]        [ Adicionar ]  │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+| <- Nova Transação                  |
++------------------------------------+
+| Nome da Transação                  |
+| [ Ex: Compra no Mercado          ] |
+|                                    |
+| Tipo de Transação                  |
+| [ Entrada ] [ Saída ]              |
+|                                    |
+| Valor                              |
+| R$ [ 0,00                        ] |
+| Data                               |
+| [ YYYY-MM-DD                     ] |
++------------------------------------+
+| Conta vinculada                    |
+| [Nubank R$ 8.240] [Itaú R$ 3.607] |
+| [Nova conta manual]                |
+|                                    |
+| Se Nova conta:                     |
+| [ Ex: Nubank                     ] |
+| [ Tipo ou banco: conta corrente ]  |
++------------------------------------+
+| Categoria                          |
+| Se Entrada: [Transferência] [Pix]  |
+| Se Saída: [Mercado] [Transporte]   |
+|           [Alimentação] [...]      |
++------------------------------------+
+| Resumo                             |
+| Transação: ...                     |
+| Data: ...                          |
+| Categoria: ...                     |
+| Tipo: Entrada/Saída                |
+| Conta: ...                         |
+| Valor: ...                         |
++------------------------------------+
+| [ Cancelar ]        [ Adicionar ]  |
++------------------------------------+
+~~~
 
-### 9.10 Perfil
+### 10.10 Perfil
 
-Arquivo: `app/screens/Profile/ProfileScreen.tsx`
+Arquivo: <code>app/screens/Profile/ProfileScreen.tsx</code>
 
 **Objetivo:** mostrar dados do usuário, estatísticas rápidas, plano e atalhos de configuração.
 
-```text
-┌────────────────────────────────────┐
-│ Perfil                         ⚙   │
-├────────────────────────────────────┤
-│        [avatar/câmera]             │
-│        Nome do usuário             │
-│        e-mail                      │
-│        Plano Básico                │
-├────────────────────────────────────┤
-│ 47          6          3           │
-│ Transações  Categorias  Contas     │
-├────────────────────────────────────┤
-│ Editar perfil                  >   │
-│ Segurança                      >   │
-│ Configurações do app           >   │
-│ Ajuda                          >   │
-├────────────────────────────────────┤
-│ [ Sair ]                           │
-└────────────────────────────────────┘
-│ Início | Saldo | Análises | Trans. │
-```
+~~~text
++------------------------------------+
+| Perfil                         cfg |
++------------------------------------+
+|        [avatar/câmera]             |
+|        Nome do usuário             |
+|        e-mail                      |
+|        Plano Básico                |
++------------------------------------+
+| 47          6          3           |
+| Transações  Categorias  Contas     |
++------------------------------------+
+| Editar perfil                  >   |
+| Segurança                      >   |
+| Configurações do app           >   |
+| Ajuda                          >   |
++------------------------------------+
+| [ Sair ]                           |
++------------------------------------+
+| Início | Saldo | Análises | Trans. |
+~~~
 
-### 9.11 Editar perfil
+### 10.11 Editar perfil
 
-Arquivo: `app/screens/Profile/EditProfileScreen.tsx`
-
-**Estado atual:** tela placeholder com cabeçalho e mensagem para implementação.
-
-```text
-┌────────────────────────────────────┐
-│ ← Editar Perfil                    │
-├────────────────────────────────────┤
-│ Implemente o conteúdo desta tela   │
-│ aqui                               │
-└────────────────────────────────────┘
-```
-
-### 9.12 Segurança
-
-Arquivo: `app/screens/Profile/SecurityScreen.tsx`
+Arquivo: <code>app/screens/Profile/EditProfileScreen.tsx</code>
 
 **Estado atual:** tela placeholder com cabeçalho e mensagem para implementação.
 
-```text
-┌────────────────────────────────────┐
-│ ← Segurança                        │
-├────────────────────────────────────┤
-│ Implemente o conteúdo desta tela   │
-│ aqui                               │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+| <- Editar Perfil                   |
++------------------------------------+
+| Implemente o conteúdo desta tela   |
+| aqui                               |
++------------------------------------+
+~~~
 
-### 9.13 Configurações do app
+### 10.12 Segurança
 
-Arquivo: `app/screens/Profile/AppSettingScreen.tsx`
-
-**Estado atual:** tela placeholder com cabeçalho e mensagem para implementação.
-
-```text
-┌────────────────────────────────────┐
-│ ← Configurações                    │
-├────────────────────────────────────┤
-│ Implemente o conteúdo desta tela   │
-│ aqui                               │
-└────────────────────────────────────┘
-```
-
-### 9.14 Ajuda
-
-Arquivo: `app/screens/Profile/HelpScreen.tsx`
+Arquivo: <code>app/screens/Profile/SecurityScreen.tsx</code>
 
 **Estado atual:** tela placeholder com cabeçalho e mensagem para implementação.
 
-```text
-┌────────────────────────────────────┐
-│ ← Ajuda                            │
-├────────────────────────────────────┤
-│ Implemente o conteúdo desta tela   │
-│ aqui                               │
-└────────────────────────────────────┘
-```
+~~~text
++------------------------------------+
+| <- Segurança                       |
++------------------------------------+
+| Implemente o conteúdo desta tela   |
+| aqui                               |
++------------------------------------+
+~~~
 
-## 10. Fluxos principais
+### 10.13 Configurações do app
 
-### 10.1 Login
+Arquivo: <code>app/screens/Profile/AppSettingScreen.tsx</code>
 
-```text
+**Estado atual:** tela placeholder com cabeçalho e mensagem para implementação.
+
+~~~text
++------------------------------------+
+| <- Configurações                   |
++------------------------------------+
+| Implemente o conteúdo desta tela   |
+| aqui                               |
++------------------------------------+
+~~~
+
+### 10.14 Ajuda
+
+Arquivo: <code>app/screens/Profile/HelpScreen.tsx</code>
+
+**Estado atual:** tela placeholder com cabeçalho e mensagem para implementação.
+
+~~~text
++------------------------------------+
+| <- Ajuda                           |
++------------------------------------+
+| Implemente o conteúdo desta tela   |
+| aqui                               |
++------------------------------------+
+~~~
+
+## 11. Fluxos principais
+
+### 11.1 Login
+
+~~~text
 Usuário abre app
-→ AuthContext tenta restaurar tokens do AsyncStorage
-→ Se não houver sessão: Login
-→ POST /auth/login
-→ Backend valida e-mail/senha
-→ Backend retorna user + accessToken + refreshToken
-→ App salva no AsyncStorage
-→ RootNavigator mostra MainTabNavigator
-```
+-> AuthContext tenta restaurar tokens do AsyncStorage
+-> Se não houver sessão: Login
+-> POST /auth/login
+-> Backend valida e-mail/senha
+-> Backend retorna user + accessToken + refreshToken
+-> App salva no AsyncStorage
+-> RootNavigator mostra MainTabNavigator
+~~~
 
-### 10.2 Renovação de sessão
+### 11.2 Renovação de sessão
 
-```text
+~~~text
 App restaura accessToken e refreshToken
-→ GET /auth/me
-→ Se accessToken estiver inválido/expirado
-→ POST /auth/refresh
-→ Backend valida refreshToken salvo no usuário
-→ Backend remove token antigo e gera token novo
-→ App salva novos tokens
-```
+-> GET /auth/me
+-> Se accessToken estiver inválido/expirado
+-> POST /auth/refresh
+-> Backend valida refreshToken salvo no usuário
+-> Backend remove token antigo e gera token novo
+-> App salva novos tokens
+~~~
 
-### 10.3 Criação de transação
+### 11.3 Criação de transação com conta manual
 
-```text
+~~~text
 Usuário abre Transações
-→ Toca em +
-→ Preenche nome, tipo, valor, data e categoria
-→ POST /data/transactions com Bearer token
-→ Backend valida campos obrigatórios
-→ Backend cria transação em memória
-→ App recebe a transação criada
-```
+-> Toca em +
+-> Escolhe Entrada ou Saída
+-> App busca categorias por tipo
+   -> Entrada: Transferência bancária, Pix
+   -> Saída: Mercado, Transporte, Alimentação, Entretenimento, Saúde, Presentes
+-> Usuário escolhe conta existente ou cria Nova conta
+-> POST /data/transactions com Bearer token
+-> Backend resolve/cria conta do usuário
+-> Backend grava transação no MongoDB
+-> Backend atualiza saldo da conta
+-> Telas recarregam ao ganhar foco
+~~~
 
-## 11. Pontos fortes
+### 11.4 Saldo total
+
+~~~text
+GET /data/accounts
+-> Backend retorna contas do usuário
+-> Tela de saldo soma account.balance de todas as contas
+-> Campo SALDO TOTAL exibe a soma
+-> Lista Contas vinculadas exibe cada conta e seu saldo individual
+~~~
+
+## 12. Pontos fortes
 
 - Separação clara entre frontend, backend, navegação, tema, contexto e utilitários.
 - Autenticação com fluxo robusto para login, cadastro, refresh token e logout.
 - Uso de hash bcrypt e remoção de campos sensíveis no JSON do usuário.
+- Dados financeiros agora persistidos no MongoDB e isolados por usuário.
+- Contas manuais permitem controlar saldos sem integração bancária externa.
+- Categorias de entrada e saída foram separadas, reduzindo classificação incorreta.
 - Interface mobile consistente, com tema próprio e componentes reutilizáveis.
 - Navegação bem estruturada entre autenticação, abas principais e stacks internos.
-- Tipagem de rotas no frontend, reduzindo erros de navegação.
+- Telas financeiras recarregam ao voltar ao foco, melhorando a experiência após cadastro de transações.
 
-## 12. Lacunas e riscos atuais
+## 13. Lacunas e riscos atuais
 
 | Área | Observação | Impacto |
 |---|---|---|
-| Dados financeiros | Transações e contas estão em memória no backend. | Dados são perdidos ao reiniciar o servidor e não são separados por usuário. |
-| URL da API | IP local fixo em `API_BASE_URL`. | App pode falhar em outro ambiente/rede. |
-| Telas de perfil | Editar perfil, segurança, configurações e ajuda ainda são placeholders. | Funcionalidades de conta ficam incompletas. |
+| URL da API | IP local fixo em <code>API_BASE_URL</code>. | App pode falhar em outro ambiente/rede. |
+| Edição/exclusão | Não há endpoints/telas para editar ou excluir transações e contas. | Correções manuais ainda exigem intervenção no banco. |
+| Saldo inicial | Nova conta começa com saldo zero e recebe saldo por lançamentos. | Para cadastrar saldo já existente, usuário precisa criar uma entrada manual. |
+| Transferências entre contas | Entrada possui categoria “Transferência bancária”, mas não existe fluxo de débito/crédito entre duas contas. | Transferências podem inflar entradas se usadas como movimentação interna. |
 | Login social | Backend aceita provider/providerId, mas não valida token com Google/Facebook/X. | Risco de autenticação social falsa se exposto em produção. |
-| README | Ainda é o README padrão do Expo. | Falta documentação de instalação real do frontend/backend. |
+| Telas de perfil | Editar perfil, segurança, configurações e ajuda ainda são placeholders. | Funcionalidades de conta ficam incompletas. |
+| README | Ainda é majoritariamente o README padrão do Expo. | Falta documentação de instalação real do frontend/backend. |
 | Testes | Não foram identificados testes automatizados. | Maior risco de regressões em autenticação e finanças. |
-| Modelo financeiro | Não há schemas MongoDB para transações, contas e categorias. | Escalabilidade e multiusuário ainda não estão resolvidos. |
 
-## 13. Recomendações técnicas
+## 14. Recomendações técnicas
 
-1. Persistir transações, contas e categorias no MongoDB com relacionamento por `userId`.
-2. Substituir o IP fixo da API por variável de ambiente Expo ou configuração por ambiente.
-3. Implementar as telas placeholder do perfil.
-4. Validar login social no backend usando tokens reais dos provedores.
-5. Criar testes para autenticação, refresh token, rotas protegidas e criação/listagem de transações.
-6. Atualizar o README com instruções reais de setup: frontend, backend, MongoDB e variáveis de ambiente.
-7. Adicionar tratamento de loading/erro padronizado nas telas que consomem API.
-8. Criar modelo de domínio financeiro: usuário → contas → transações → categorias → resumo.
+1. Substituir o IP fixo da API por variável de ambiente Expo ou configuração por ambiente.
+2. Criar endpoints e telas para editar/excluir transações.
+3. Criar fluxo dedicado para saldo inicial de conta, separado de entradas recorrentes.
+4. Implementar transferência entre contas como operação própria: debita uma conta e credita outra.
+5. Criar tela de gestão de contas para cadastrar, renomear, arquivar e ajustar saldo.
+6. Validar login social no backend usando tokens reais dos provedores.
+7. Implementar as telas placeholder do perfil.
+8. Criar testes para autenticação, refresh token, rotas protegidas, transações, contas e categorias por tipo.
+9. Atualizar o README com setup real de frontend, backend, MongoDB e variáveis de ambiente.
+10. Adicionar tratamento visual padronizado para loading/erro nas telas financeiras.
 
-## 14. Scripts úteis
+## 15. Scripts úteis
 
 Frontend:
 
-```bash
+~~~bash
 npm install
 npm run start
 npm run android
 npm run ios
 npm run web
 npm run lint
-```
+~~~
 
 Backend:
 
-```bash
+~~~bash
 cd backend
 npm install
 npm run dev
 npm start
-```
+~~~
 
 Variáveis esperadas no backend:
 
-```env
+~~~env
 MONGODB_URI=mongodb+srv://...
 JWT_SECRET=...
 JWT_REFRESH_SECRET=...
 PORT=4000
-```
+~~~
 
-## 15. Conclusão
+## 16. Conclusão
 
-O FinTrackApp já tem uma base sólida de aplicativo mobile financeiro: frontend em Expo/React Native, backend Express, autenticação com JWT, tema visual consistente e navegação organizada. O próximo passo mais importante é transformar os dados financeiros de mock/memória em dados persistidos e isolados por usuário no MongoDB. Depois disso, o app passa de protótipo funcional para uma base mais próxima de produção.
+O FinTrackApp evoluiu de um protótipo com dados financeiros em mock/memória para uma base funcional com persistência real no MongoDB, isolamento por usuário, contas manuais vinculadas e categorização mais coerente entre entradas e saídas. O fluxo financeiro atual já permite ao usuário registrar transações, controlar saldos por conta e visualizar o saldo total consolidado.
+
+O próximo avanço natural é amadurecer a gestão financeira: edição/exclusão de lançamentos, cadastro direto de contas, saldo inicial, transferências entre contas e testes automatizados. Com esses pontos, o projeto fica mais próximo de um app de finanças pessoais utilizável no dia a dia.

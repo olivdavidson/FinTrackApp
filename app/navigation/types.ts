@@ -1,6 +1,7 @@
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Category } from "../utils/mockData";
+import { Transaction } from "../utils/mockData";
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -28,7 +29,7 @@ export type HomeStackParamList = {
 // Transaction Stack
 export type TransactionStackParamList = {
   TransactionsMain: undefined;
-  AddTransaction: undefined;
+  AddTransaction: { transaction?: Transaction } | undefined;
 };
 
 // Profile Stack

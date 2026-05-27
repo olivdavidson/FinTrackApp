@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +15,7 @@ import AmountText from "../../components/common/AmountText";
 import { useAuth } from "../../context/AuthContext";
 import { TransactionsScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
-import { getTransactions } from "../../utils/api";
+import { deleteTransaction, getTransactions } from "../../utils/api";
 import { Transaction } from "../../utils/mockData";
 
 type Filter = "Todas" | "Entradas" | "Saídas" | "Mercado" | "Transporte";
@@ -92,6 +93,42 @@ const TransactionsScreen = ({ navigation }: TransactionsScreenProps) => {
     useCallback(() => {
       loadTransactions();
     }, [loadTransactions]),
+  );
+
+  const handleDeleteTransaction = useCallback(
+    (transaction: Transaction) => {
+      Alert.alert(
+        "Remover transação",
+        `Deseja remover \"${transaction.name}\"? O saldo da conta vinculada será recalculado.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Remover",
+            style: "destructive",
+            onPress: async () => {
+              if (!accessToken || !refreshToken) return;
+
+              try {
+                await deleteTransaction(
+                  transaction.id,
+                  accessToken,
+                  refreshToken,
+                  updateTokens,
+                );
+                await loadTransactions();
+              } catch (err) {
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : "Erro ao remover transação.",
+                );
+              }
+            },
+          },
+        ],
+      );
+    },
+    [accessToken, refreshToken, updateTokens, loadTransactions],
   );
 
   const filtered = useMemo(() => {
@@ -178,6 +215,9 @@ const TransactionsScreen = ({ navigation }: TransactionsScreenProps) => {
                 key={tx.id}
                 style={styles.txCard}
                 activeOpacity={0.7}
+                onPress={() =>
+                  navigation.navigate("AddTransaction", { transaction: tx })
+                }
               >
                 <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
                   <Ionicons
@@ -191,6 +231,17 @@ const TransactionsScreen = ({ navigation }: TransactionsScreenProps) => {
                   <Text style={styles.txCategory}>{tx.category}</Text>
                 </View>
                 <AmountText value={tx.amount} size={15} />
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => handleDeleteTransaction(tx)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={colors.red}
+                  />
+                </TouchableOpacity>
               </TouchableOpacity>
             ))}
           </View>
@@ -296,6 +347,12 @@ const styles = StyleSheet.create({
   txInfo: { flex: 1 },
   txName: { fontSize: 14, fontWeight: "500", color: colors.text },
   txCategory: { fontSize: 10, color: colors.text3, marginTop: 2 },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   empty: { paddingVertical: 48, alignItems: "center", gap: 12 },
   emptyText: { fontSize: 14, color: colors.text3 },
 });

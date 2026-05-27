@@ -56,6 +56,7 @@ const transactionSchema = new mongoose.Schema(
     toJSON: {
       transform(_, ret) {
         ret.id = ret._id.toString();
+        ret.accountId = ret.account?.toString() ?? null;
         delete ret._id;
         delete ret.__v;
         delete ret.user;

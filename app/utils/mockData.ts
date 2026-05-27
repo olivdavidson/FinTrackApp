@@ -2,6 +2,7 @@ import { colors } from "../theme";
 
 export interface Transaction {
   id: string;
+  accountId?: string | null;
   name: string;
   category: string;
   amount: number;

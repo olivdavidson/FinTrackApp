@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
+    Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -15,7 +16,17 @@ import Card from "../../components/common/Card";
 import { useAuth } from "../../context/AuthContext";
 import { AddTransactionScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
-import { createTransaction, getAccounts, getCategories } from "../../utils/api";
+import {
+  createCategory,
+  createTransaction,
+  deleteAccount,
+  deleteCategory,
+  getAccounts,
+  getCategories,
+  updateAccount,
+  updateCategory,
+  updateTransaction,
+} from "../../utils/api";
 import type { Account, Category } from "../../utils/mockData";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -49,26 +60,50 @@ const categoryIconMap: Record<string, IoniconName> = {
   barbell: "barbell-outline",
 };
 
-const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
+const AddTransactionScreen = ({
+  navigation,
+  route,
+}: AddTransactionScreenProps) => {
   const insets = useSafeAreaInsets();
+  const editingTransaction = route.params?.transaction;
+  const isEditingTransaction = Boolean(editingTransaction);
   const { accessToken, refreshToken, updateTokens } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [formData, setFormData] = useState<TransactionFormData>({
     name: "",
     amount: "",
-    type: "expense",
+    type: editingTransaction?.type ?? "expense",
     categoryId: "",
-    accountId: "",
+    accountId: editingTransaction?.accountId ?? "",
     accountName: "",
     accountBank: "",
-    date: new Date().toISOString().slice(0, 10),
+    date: editingTransaction?.date ?? new Date().toISOString().slice(0, 10),
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [accountDraftName, setAccountDraftName] = useState("");
+  const [accountDraftBank, setAccountDraftBank] = useState("");
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [categoryDraftName, setCategoryDraftName] = useState("");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+
+  useEffect(() => {
+    if (!editingTransaction) return;
+
+    setFormData((current) => ({
+      ...current,
+      name: editingTransaction.name,
+      amount: Math.abs(editingTransaction.amount).toString().replace(".", ","),
+      type: editingTransaction.type,
+      date: editingTransaction.date,
+      accountId: editingTransaction.accountId ?? current.accountId,
+    }));
+  }, [editingTransaction]);
 
   useEffect(() => {
     async function loadCategories() {
@@ -87,9 +122,12 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
         setCategories(data);
         setFormData((current) => ({
           ...current,
-          categoryId: data.some((category) => category.id === current.categoryId)
-            ? current.categoryId
-            : data[0]?.id || "",
+          categoryId:
+            data.find((category) => category.name === editingTransaction?.category)
+              ?.id ||
+            (data.some((category) => category.id === current.categoryId)
+              ? current.categoryId
+              : data[0]?.id || ""),
         }));
       } catch (error) {
         setSubmitError(
@@ -103,7 +141,13 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
     }
 
     loadCategories();
-  }, [accessToken, refreshToken, updateTokens, formData.type]);
+  }, [
+    accessToken,
+    refreshToken,
+    updateTokens,
+    formData.type,
+    editingTransaction?.category,
+  ]);
 
   useEffect(() => {
     async function loadAccounts() {
@@ -117,7 +161,11 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
         setAccounts(data);
         setFormData((current) => ({
           ...current,
-          accountId: current.accountId || data[0]?.id || "new",
+          accountId:
+            editingTransaction?.accountId ||
+            current.accountId ||
+            data[0]?.id ||
+            "new",
         }));
       } catch (error) {
         setSubmitError(
@@ -129,13 +177,170 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
     }
 
     loadAccounts();
-  }, [accessToken, refreshToken, updateTokens]);
+  }, [accessToken, refreshToken, updateTokens, editingTransaction?.accountId]);
 
   const selectedCategory = categories.find(
     (c) => c.id === formData.categoryId,
   );
   const selectedAccount = accounts.find((acc) => acc.id === formData.accountId);
   const isNewAccount = formData.accountId === "new";
+
+  const reloadAccounts = async () => {
+    if (!accessToken || !refreshToken) return;
+    const data = await getAccounts(accessToken, refreshToken, updateTokens);
+    setAccounts(data);
+    if (!data.some((account) => account.id === formData.accountId)) {
+      setFormData((current) => ({
+        ...current,
+        accountId: data[0]?.id || "new",
+      }));
+    }
+  };
+
+  const reloadCategories = async () => {
+    if (!accessToken || !refreshToken) return;
+    const data = await getCategories(
+      accessToken,
+      refreshToken,
+      updateTokens,
+      formData.type,
+    );
+    setCategories(data);
+    if (!data.some((category) => category.id === formData.categoryId)) {
+      setFormData((current) => ({
+        ...current,
+        categoryId: data[0]?.id || "",
+      }));
+    }
+  };
+
+  const startEditAccount = () => {
+    if (!selectedAccount) return;
+    setEditingAccount(true);
+    setAccountDraftName(selectedAccount.name);
+    setAccountDraftBank(selectedAccount.bank);
+  };
+
+  const saveAccount = async () => {
+    if (!accessToken || !refreshToken || !selectedAccount) return;
+    if (!accountDraftName.trim()) {
+      setSubmitError("Digite o nome da conta.");
+      return;
+    }
+
+    await updateAccount(
+      selectedAccount.id,
+      {
+        name: accountDraftName.trim(),
+        bank: accountDraftBank.trim() || "Conta manual",
+      },
+      accessToken,
+      refreshToken,
+      updateTokens,
+    );
+    setEditingAccount(false);
+    await reloadAccounts();
+  };
+
+  const confirmDeleteAccount = () => {
+    if (!accessToken || !refreshToken || !selectedAccount) return;
+
+    Alert.alert(
+      "Remover conta",
+      `Deseja remover \"${selectedAccount.name}\"? As transações antigas continuam na lista, mas a conta deixa de compor o saldo total.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: async () => {
+            await deleteAccount(
+              selectedAccount.id,
+              accessToken,
+              refreshToken,
+              updateTokens,
+            );
+            setEditingAccount(false);
+            await reloadAccounts();
+          },
+        },
+      ],
+    );
+  };
+
+  const startEditCategory = () => {
+    if (!selectedCategory) return;
+    setCreatingCategory(false);
+    setEditingCategory(true);
+    setCategoryDraftName(selectedCategory.name);
+  };
+
+  const startCreateCategory = () => {
+    setEditingCategory(false);
+    setCreatingCategory(true);
+    setCategoryDraftName("");
+  };
+
+  const saveCategory = async () => {
+    if (!accessToken || !refreshToken) return;
+    if (!categoryDraftName.trim()) {
+      setSubmitError("Digite o nome da categoria.");
+      return;
+    }
+
+    const category = creatingCategory
+      ? await createCategory(
+          {
+            name: categoryDraftName.trim(),
+            type: formData.type,
+          },
+          accessToken,
+          refreshToken,
+          updateTokens,
+        )
+      : selectedCategory
+        ? await updateCategory(
+            selectedCategory.id,
+            { name: categoryDraftName.trim(), type: formData.type },
+            accessToken,
+            refreshToken,
+            updateTokens,
+          )
+        : null;
+
+    setCreatingCategory(false);
+    setEditingCategory(false);
+    await reloadCategories();
+    if (category) {
+      setFormData((current) => ({ ...current, categoryId: category.id }));
+    }
+  };
+
+  const confirmDeleteCategory = () => {
+    if (!accessToken || !refreshToken || !selectedCategory) return;
+
+    Alert.alert(
+      "Remover categoria",
+      `Deseja remover \"${selectedCategory.name}\"? Transações antigas manterão o texto da categoria, mas ela deixará de aparecer como opção.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Remover",
+          style: "destructive",
+          onPress: async () => {
+            await deleteCategory(
+              selectedCategory.id,
+              accessToken,
+              refreshToken,
+              updateTokens,
+            );
+            setEditingCategory(false);
+            await reloadCategories();
+          },
+        },
+      ],
+    );
+  };
 
   const isValidDate = (value: string) => {
     if (!value) return false;
@@ -193,8 +398,7 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
     setSubmitError(null);
 
     try {
-      await createTransaction(
-        {
+      const payload = {
           name: formData.name.trim(),
           amount: Number(formData.amount.replace(",", ".")),
           type: formData.type,
@@ -206,11 +410,24 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
           accountBank: isNewAccount
             ? formData.accountBank.trim() || "Conta manual"
             : undefined,
-        },
-        accessToken,
-        refreshToken,
-        updateTokens,
-      );
+        };
+
+      if (editingTransaction) {
+        await updateTransaction(
+          editingTransaction.id,
+          payload,
+          accessToken,
+          refreshToken,
+          updateTokens,
+        );
+      } else {
+        await createTransaction(
+          payload,
+          accessToken,
+          refreshToken,
+          updateTokens,
+        );
+      }
 
       navigation.goBack();
     } catch (error) {
@@ -244,7 +461,9 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
           >
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={typography.h2}>Nova Transação</Text>
+          <Text style={typography.h2}>
+            {isEditingTransaction ? "Editar Transação" : "Nova Transação"}
+          </Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -457,6 +676,62 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
                 </View>
               </View>
             )}
+            {!isNewAccount && selectedAccount && (
+              <View style={styles.managementBox}>
+                <View style={styles.managementActions}>
+                  <TouchableOpacity
+                    style={styles.smallButton}
+                    onPress={startEditAccount}
+                  >
+                    <Text style={styles.smallButtonText}>Editar conta</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.smallButton, styles.dangerButton]}
+                    onPress={confirmDeleteAccount}
+                  >
+                    <Text style={[styles.smallButtonText, styles.dangerText]}>
+                      Remover
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {editingAccount && (
+                  <View style={styles.newAccountFields}>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Nome da conta"
+                        placeholderTextColor={colors.text3}
+                        value={accountDraftName}
+                        onChangeText={setAccountDraftName}
+                      />
+                    </View>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Tipo ou banco"
+                        placeholderTextColor={colors.text3}
+                        value={accountDraftBank}
+                        onChangeText={setAccountDraftBank}
+                      />
+                    </View>
+                    <View style={styles.managementActions}>
+                      <TouchableOpacity
+                        style={styles.smallButton}
+                        onPress={saveAccount}
+                      >
+                        <Text style={styles.smallButtonText}>Salvar conta</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.smallButton}
+                        onPress={() => setEditingAccount(false)}
+                      >
+                        <Text style={styles.smallButtonText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Categoria */}
@@ -518,6 +793,66 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
             {errors.category && (
               <Text style={styles.errorText}>{errors.category}</Text>
             )}
+            <View style={styles.managementBox}>
+              <View style={styles.managementActions}>
+                <TouchableOpacity
+                  style={styles.smallButton}
+                  onPress={startCreateCategory}
+                >
+                  <Text style={styles.smallButtonText}>Nova categoria</Text>
+                </TouchableOpacity>
+                {selectedCategory && (
+                  <TouchableOpacity
+                    style={styles.smallButton}
+                    onPress={startEditCategory}
+                  >
+                    <Text style={styles.smallButtonText}>Editar categoria</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedCategory && (
+                  <TouchableOpacity
+                    style={[styles.smallButton, styles.dangerButton]}
+                    onPress={confirmDeleteCategory}
+                  >
+                    <Text style={[styles.smallButtonText, styles.dangerText]}>
+                      Remover
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {(editingCategory || creatingCategory) && (
+                <View style={styles.newAccountFields}>
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Nome da categoria"
+                      placeholderTextColor={colors.text3}
+                      value={categoryDraftName}
+                      onChangeText={setCategoryDraftName}
+                    />
+                  </View>
+                  <View style={styles.managementActions}>
+                    <TouchableOpacity
+                      style={styles.smallButton}
+                      onPress={saveCategory}
+                    >
+                      <Text style={styles.smallButtonText}>
+                        {creatingCategory ? "Criar categoria" : "Salvar"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.smallButton}
+                      onPress={() => {
+                        setCreatingCategory(false);
+                        setEditingCategory(false);
+                      }}
+                    >
+                      <Text style={styles.smallButtonText}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Resumo */}
@@ -601,7 +936,11 @@ const AddTransactionScreen = ({ navigation }: AddTransactionScreenProps) => {
           >
             <Ionicons name="add" size={20} color={colors.bg} />
             <Text style={styles.submitButtonText}>
-              {saving ? "Salvando..." : "Adicionar"}
+              {saving
+                ? "Salvando..."
+                : isEditingTransaction
+                  ? "Atualizar"
+                  : "Adicionar"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -747,6 +1086,35 @@ const styles = StyleSheet.create({
   newAccountFields: {
     gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  managementBox: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  managementActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  smallButton: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  dangerButton: {
+    borderColor: colors.red,
+    backgroundColor: colors.redBg,
+  },
+  smallButtonText: {
+    color: colors.text2,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dangerText: {
+    color: colors.red,
   },
   categoryButton: {
     alignItems: "center",
