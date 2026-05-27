@@ -3,19 +3,31 @@ import { Platform } from "react-native";
 import { Account, Category, Transaction } from "./mockData";
 
 const getDebugHost = () => {
-  const debuggerHost = (Constants.manifest as any)?.debuggerHost;
-  if (debuggerHost) {
-    const host = debuggerHost.split(":")[0];
-    if (host === "localhost" || host === "127.0.0.1") {
-      return Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  //const debuggerHost = (Constants.manifest as any)?.debuggerHost;
+  //if (debuggerHost) {
+  //const host = debuggerHost.split(":")[0];
+  //if (host === "localhost" || host === "127.0.0.1") {
+  //return Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  //}
+  //return host;
+  const envUrl =
+    Constants.expoConfig?.extra?.apiBaseUrl ||
+    process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (envUrl) {
+    try {
+      const url = new URL(envUrl);
+      return url.hostname;
+    } catch (error) {
+      console.warn("URL de API inválida");
     }
-    return host;
   }
 
-  return Platform.OS === "android" ? "10.0.2.2" : "localhost";
+  return Platform.OS === "android"
+    ? "http://10.0.2.2:4000"
+    : "http://localhost:4000";
 };
 
-export const API_BASE_URL = `http://192.168.1.70:4000`; //{getDebugHost()}
+export const API_BASE_URL = `http://${getDebugHost()}:4000`;
 
 export type LoginResponse = {
   user: {
