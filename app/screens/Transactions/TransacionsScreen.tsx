@@ -3,6 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AmountText from "../../components/common/AmountText";
+import { TransactionSkeleton } from "../../components/skeletons/TransactionSkeleton";
 import { useAuth } from "../../context/AuthContext";
 import { TransactionsScreenProps } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
@@ -206,63 +208,68 @@ const TransactionsScreen = ({ navigation }: TransactionsScreenProps) => {
       </ScrollView>
 
       {/* Transactions grouped by date */}
-      <View style={styles.txList}>
-        {Object.entries(groups).map(([date, txs]) => (
-          <View key={date}>
-            <Text style={styles.groupDate}>{formatDate(date)}</Text>
-            {txs.map((tx) => (
-              <TouchableOpacity
-                key={tx.id}
-                style={styles.txCard}
-                activeOpacity={0.7}
-                onPress={() =>
-                  navigation.navigate("AddTransaction", { transaction: tx })
-                }
-              >
-                <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
-                  <Ionicons
-                    name={txIconMap[tx.icon] ?? "card-outline"}
-                    size={20}
-                    color={tx.iconColor}
-                  />
-                </View>
-                <View style={styles.txInfo}>
-                  <Text style={styles.txName}>{tx.name}</Text>
-                  <Text style={styles.txCategory}>{tx.category}</Text>
-                </View>
-                <AmountText value={tx.amount} size={15} />
+      {loading ? (
+        <FlatList
+          data={[1, 2, 3, 4, 5, 6]}
+          keyExtractor={(item) => item.toString()}
+          renderItem={() => <TransactionSkeleton />}
+          scrollEnabled={false}
+          style={styles.txList}
+        />
+      ) : (
+        <View style={styles.txList}>
+          {Object.entries(groups).map(([date, txs]) => (
+            <View key={date}>
+              <Text style={styles.groupDate}>{formatDate(date)}</Text>
+              {txs.map((tx) => (
                 <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => handleDeleteTransaction(tx)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  key={tx.id}
+                  style={styles.txCard}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    navigation.navigate("AddTransaction", { transaction: tx })
+                  }
                 >
-                  <Ionicons
-                    name="trash-outline"
-                    size={18}
-                    color={colors.red}
-                  />
+                  <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
+                    <Ionicons
+                      name={txIconMap[tx.icon] ?? "card-outline"}
+                      size={20}
+                      color={tx.iconColor}
+                    />
+                  </View>
+                  <View style={styles.txInfo}>
+                    <Text style={styles.txName}>{tx.name}</Text>
+                    <Text style={styles.txCategory}>{tx.category}</Text>
+                  </View>
+                  <AmountText value={tx.amount} size={15} />
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => handleDeleteTransaction(tx)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={colors.red}
+                    />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-        {loading && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Carregando transações...</Text>
-          </View>
-        )}
-        {!loading && error && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{error}</Text>
-          </View>
-        )}
-        {!loading && !error && filtered.length === 0 && (
-          <View style={styles.empty}>
-            <Ionicons name="search-outline" size={40} color={colors.text3} />
-            <Text style={styles.emptyText}>Nenhuma transação encontrada</Text>
-          </View>
-        )}
-      </View>
+              ))}
+            </View>
+          ))}
+          {error && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>{error}</Text>
+            </View>
+          )}
+          {!error && filtered.length === 0 && (
+            <View style={styles.empty}>
+              <Ionicons name="search-outline" size={40} color={colors.text3} />
+              <Text style={styles.emptyText}>Nenhuma transação encontrada</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <View style={{ height: spacing.xl }} />
     </ScrollView>
