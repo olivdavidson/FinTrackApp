@@ -2,7 +2,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { Account, Category, Transaction } from "./mockData";
 
-const getDebugHost = () => {
+const getApiBaseUrl = () => {
   //const debuggerHost = (Constants.manifest as any)?.debuggerHost;
   //if (debuggerHost) {
   //const host = debuggerHost.split(":")[0];
@@ -16,7 +16,7 @@ const getDebugHost = () => {
   if (envUrl) {
     try {
       const url = new URL(envUrl);
-      return url.hostname;
+      return url.origin;
     } catch (error) {
       console.warn(
         'URL de API inválida: "${envUrl}". Usando localhost como fallback.',
@@ -30,13 +30,15 @@ const getDebugHost = () => {
     : "http://localhost:4000";
 };
 
-export const API_BASE_URL = `http://${getDebugHost()}:4000`;
+export const API_BASE_URL = getApiBaseUrl();
 
 export type LoginResponse = {
   user: {
     _id: string;
     name: string;
     email: string;
+    phone?: string | null;
+    phoneVerified?: boolean;
     avatar?: string | null;
   };
   accessToken: string;
@@ -71,14 +73,30 @@ export type RegisterResponse = LoginResponse;
 export async function registerWithEmail(
   name: string,
   email: string,
+  phone: string,
   password: string,
+  phoneCode: string,
 ): Promise<RegisterResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, phone, password, phoneCode }),
+  });
+
+  return parseJson(response);
+}
+
+export async function sendPhoneVerificationCode(
+  phone: string,
+): Promise<{ phone: string; status?: string }> {
+  const response = await fetch(`${API_BASE_URL}/auth/phone/send-code`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ phone }),
   });
 
   return parseJson(response);
@@ -118,7 +136,14 @@ export async function refreshAccessToken(
 }
 
 export async function getCurrentUser(accessToken: string): Promise<{
-  user: { _id: string; name: string; email: string; avatar?: string | null };
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+    phoneVerified?: boolean;
+    avatar?: string | null;
+  };
 }> {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
     method: "GET",
@@ -378,6 +403,84 @@ export async function deleteCategory(
     refreshToken,
     onTokenRefreshed,
   );
+}
+
+export interface ApiResponse {
+  success: boolean;
+  message: string;
+  userId?: string;
+  identifier?: string;
+  isEmail?: boolean;
+}
+
+const parseAuthResponse = async (response: Response): Promise<ApiResponse> => {
+  const json = await response.json();
+  if (!response.ok) {
+    throw new Error(json.message || "Erro ao conectar com o servidor.");
+  }
+
+  return {
+    success: json.success,
+    message: json.message,
+    ...(json.data || {}),
+  };
+};
+
+export async function requestPasswordReset(
+  identifier: string,
+): Promise<ApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/request-password-reset`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ identifier }),
+  });
+
+  return parseAuthResponse(response);
+}
+
+export async function verifyOtpCode(
+  userId: string,
+  otpCode: string,
+): Promise<ApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userId, otpCode }),
+  });
+
+  return parseAuthResponse(response);
+}
+
+export async function resendOtpCode(userId: string): Promise<ApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userId }),
+  });
+
+  return parseAuthResponse(response);
+}
+
+export async function resetPassword(
+  userId: string,
+  newPassword: string,
+  otpCode: string,
+): Promise<ApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ userId, newPassword, otpCode }),
+  });
+
+  return parseAuthResponse(response);
 }
 
 export async function authFetch(

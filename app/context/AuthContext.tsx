@@ -19,6 +19,8 @@ export type User = {
   _id: string;
   name: string;
   email: string;
+  phone?: string | null;
+  phoneVerified?: boolean;
   avatar?: string | null;
 };
 
@@ -31,7 +33,9 @@ type AuthContextData = {
   register: (
     name: string,
     email: string,
+    phone: string,
     password: string,
+    phoneCode: string,
   ) => Promise<LoginResponse>;
   signOut: () => Promise<void>;
   updateTokens: (accessToken: string, refreshToken: string) => Promise<void>;
@@ -100,8 +104,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return authData;
   };
 
-  const register = async (name: string, email: string, password: string) => {
-    const authData = await registerWithEmail(name, email, password);
+  const register = async (
+    name: string,
+    email: string,
+    phone: string,
+    password: string,
+    phoneCode: string,
+  ) => {
+    const authData = await registerWithEmail(
+      name,
+      email,
+      phone,
+      password,
+      phoneCode,
+    );
     await persistAuth(authData);
     return authData;
   };

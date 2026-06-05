@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { AuthStackParamList, RootStackParamList } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
+import { sendPhoneVerificationCode } from "../../utils/api";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -36,10 +37,14 @@ const RegisterScreen = () => {
   const navigation = useNavigation<NavProp>();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { register } = useAuth();
 
@@ -67,8 +72,37 @@ const RegisterScreen = () => {
         ? "#FBBF24"
         : "#34D399";
 
+  const handleSendPhoneCode = async () => {
+    if (phone.replace(/\D/g, "").length < 10) {
+      setErrorMessage("Informe um telefone válido para receber o código.");
+      return;
+    }
+
+    setSendingCode(true);
+    setErrorMessage(null);
+
+    try {
+      await sendPhoneVerificationCode(phone.trim());
+      setCodeSent(true);
+      Alert.alert("Código enviado", "Verifique o SMS recebido no telefone.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Erro ao enviar código.",
+      );
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+    if (
+      !name.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !phoneCode.trim() ||
+      !password ||
+      !confirmPassword
+    ) {
       Alert.alert("Erro", "Preencha todos os campos para continuar.");
       return;
     }
@@ -89,7 +123,13 @@ const RegisterScreen = () => {
     setErrorMessage(null);
 
     try {
-      await register(name.trim(), email.trim(), password);
+      await register(
+        name.trim(),
+        email.trim(),
+        phone.trim(),
+        password,
+        phoneCode.trim(),
+      );
       // Após cadastro bem-sucedido, navegar para a aba principal de Transações
       // e abrir o formulário de Adicionar Transação para o usuário criar
       // sua primeira entrada/saída.
@@ -186,6 +226,64 @@ const RegisterScreen = () => {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+          />
+        </View>
+
+        <Text style={styles.label}>Telefone</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="call-outline"
+            size={18}
+            color={colors.text3}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            value={phone}
+            onChangeText={(value) => {
+              setPhone(value);
+              setCodeSent(false);
+            }}
+            placeholder="(92) 99999-9999"
+            placeholderTextColor={colors.text3}
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.btnSecondary,
+            sendingCode && styles.btnPrimaryLoading,
+          ]}
+          onPress={handleSendPhoneCode}
+          activeOpacity={0.85}
+          disabled={sendingCode}
+        >
+          {sendingCode ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : (
+            <Text style={styles.btnSecondaryText}>
+              {codeSent ? "Reenviar código SMS" : "Enviar código SMS"}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.label}>Código SMS</Text>
+        <View style={styles.inputWrapper}>
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={18}
+            color={colors.text3}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            value={phoneCode}
+            onChangeText={setPhoneCode}
+            placeholder="000000"
+            placeholderTextColor={colors.text3}
+            keyboardType="number-pad"
+            maxLength={10}
           />
         </View>
 
@@ -369,6 +467,19 @@ const styles = StyleSheet.create({
   },
   btnPrimaryLoading: { opacity: 0.8 },
   btnPrimaryText: { color: colors.bg, fontSize: 15, fontWeight: "700" },
+  btnSecondary: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
+  btnSecondaryText: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   errorText: {
     color: colors.red,
     textAlign: "center",

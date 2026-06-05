@@ -25,6 +25,16 @@ const userSchema = new mongoose.Schema(
       match: [/^\S+@\S+\.\S+$/, "Formato de e-mail inválido"],
     },
 
+    phone: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+
     // ── Senha (hash bcrypt, nunca plain-text) ──────────────────────────────
     password: {
       type: String,
@@ -129,6 +139,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 // Índices
 // ─────────────────────────────────────────────────────────────────────────────
 userSchema.index({ email: 1 }); // busca por email
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 userSchema.index({ provider: 1, providerId: 1 }); // login social
 
 const User = mongoose.model("User", userSchema);

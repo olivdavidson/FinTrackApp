@@ -7,6 +7,16 @@ import { Transaction } from "../utils/mockData";
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  VerifyCode: {
+    userId: string;
+    identifier: string;
+    isEmail?: boolean;
+  };
+  ResetPassword: {
+    userId: string;
+    otpCode: string;
+  };
 };
 
 // Main Tab

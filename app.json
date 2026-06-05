@@ -19,12 +19,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.olidavidson.FinTrackApp"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
+    "package": "com.dom.fintrackapp",
     "plugins": [
       [
         "expo-splash-screen",
@@ -43,6 +41,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0116ed07-98eb-421b-ad62-fe66f6820441"
+      }
     }
   }
 }
