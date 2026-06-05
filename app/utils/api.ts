@@ -440,6 +440,66 @@ export async function requestPasswordReset(
   return parseAuthResponse(response);
 }
 
+export async function send2faCode(accessToken: string): Promise<ApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/2fa/send`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  return parseAuthResponse(response);
+}
+
+export async function verify2fa(
+  code: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<{ user: any } & ApiResponse> {
+  return authFetch(
+    `${API_BASE_URL}/auth/2fa/verify`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ code }),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function disable2fa(
+  currentPassword: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<{ user: any } & ApiResponse> {
+  return authFetch(
+    `${API_BASE_URL}/auth/2fa/disable`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ currentPassword }),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
 export async function verifyOtpCode(
   userId: string,
   otpCode: string,
@@ -478,6 +538,87 @@ export async function resetPassword(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ userId, newPassword, otpCode }),
+  });
+
+  return parseAuthResponse(response);
+}
+
+export async function updateProfile(
+  payload: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    avatarBase64?: string;
+  },
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<{ user: any }> {
+  return authFetch(
+    `${API_BASE_URL}/auth/me`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    },
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function uploadAvatar(
+  fileUri: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<{ user: any }> {
+  const form = new FormData();
+  const filename = fileUri.split("/").pop() || "avatar.jpg";
+  const match = filename.match(/\.(jpg|jpeg|png)$/i);
+  const type = match ? `image/${match[1].toLowerCase()}` : "image/jpeg";
+
+  // React Native FormData file
+  // @ts-ignore
+  form.append("avatar", { uri: fileUri, name: filename, type });
+
+  return authFetch(
+    `${API_BASE_URL}/auth/me/avatar`,
+    {
+      method: "POST",
+      body: form,
+    } as RequestInit,
+    accessToken,
+    refreshToken,
+    onTokenRefreshed,
+  );
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  accessToken: string,
+  refreshToken: string,
+  onTokenRefreshed: (
+    accessToken: string,
+    refreshToken: string,
+  ) => Promise<void>,
+): Promise<ApiResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
   });
 
   return parseAuthResponse(response);

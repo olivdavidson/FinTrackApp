@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ToastProvider } from "./app/components/common/ToastProvider";
 import { AuthProvider } from "./app/context/AuthContext";
 import RootNavigator from "./app/navigation/RootNavigator";
 import { colors } from "./app/theme";
@@ -44,10 +45,12 @@ export default function App() {
           onLayout={onLayoutRootView}
         >
           <NavigationContainer>
-            <AuthProvider>
-              <StatusBar style="light" backgroundColor={colors.bg} />
-              <RootNavigator />
-            </AuthProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <StatusBar style="light" backgroundColor={colors.bg} />
+                <RootNavigator />
+              </AuthProvider>
+            </ToastProvider>
           </NavigationContainer>
         </View>
       </SafeAreaProvider>

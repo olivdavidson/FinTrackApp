@@ -21,6 +21,7 @@ export type User = {
   email: string;
   phone?: string | null;
   phoneVerified?: boolean;
+  twoFaEnabled?: boolean;
   avatar?: string | null;
 };
 
@@ -39,6 +40,7 @@ type AuthContextData = {
   ) => Promise<LoginResponse>;
   signOut: () => Promise<void>;
   updateTokens: (accessToken: string, refreshToken: string) => Promise<void>;
+  updateProfile: (partial: Partial<User>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
@@ -96,6 +98,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       authData.accessToken,
       authData.refreshToken,
     );
+  };
+
+  const updateProfile = async (partial: Partial<User>) => {
+    setUser((prev) => {
+      const next = prev ? { ...prev, ...partial } : (partial as User);
+      // persist to storage with current tokens (may be null during anonymous)
+      (async () => {
+        try {
+          await saveAuthData(
+            JSON.stringify(next),
+            accessToken || "",
+            refreshToken || "",
+          );
+        } catch (err) {
+          console.warn("Falha ao persistir usuário atualizado:", err);
+        }
+      })();
+
+      return next;
+    });
   };
 
   const signIn = async (email: string, password: string) => {
@@ -158,6 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       register,
       signOut,
       updateTokens,
+      updateProfile,
     }),
     [user, accessToken, refreshToken, loading],
   );

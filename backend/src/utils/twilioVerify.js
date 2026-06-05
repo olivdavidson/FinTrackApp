@@ -1,4 +1,5 @@
 const twilio = require("twilio");
+const rateLimit = require("express-rate-limit");
 
 const getClient = () => {
   const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_VERIFY_SERVICE_SID } =
@@ -62,9 +63,21 @@ const maskPhone = (phone) => {
   });
 };
 
+const smsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Limite de 5 envios por 15 minutos
+  message: {
+    success: false,
+    message: "Limite de envios atingido. Tente novamente mais tarde.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 module.exports = {
   normalizePhone,
   sendVerificationCode,
   checkVerificationCode,
   maskPhone,
+  smsLimiter,
 };

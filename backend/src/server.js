@@ -14,6 +14,9 @@ const PORT = process.env.PORT || 4000;
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+// Serve uploaded files (avatars)
+app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+
 app.get("/", (req, res) => {
   res.json({ success: true, message: "FinTrack backend ativo." });
 });

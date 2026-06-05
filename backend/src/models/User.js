@@ -35,6 +35,11 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    twoFaEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
     // ── Senha (hash bcrypt, nunca plain-text) ──────────────────────────────
     password: {
       type: String,
