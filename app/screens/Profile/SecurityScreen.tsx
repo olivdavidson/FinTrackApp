@@ -11,7 +11,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../../components/common/ToastProvider";
@@ -142,7 +142,6 @@ const SecurityScreen = () => {
     }
   };
 
-  const toast = useToast();
   const handleSend2fa = async () => {
     if (!accessToken)
       return toast.showToast("Usuário não autenticado.", "error");
