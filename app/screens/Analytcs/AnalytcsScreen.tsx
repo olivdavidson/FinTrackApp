@@ -2,15 +2,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Card from "../../components/common/Card";
+import { ShimmerBlock } from "../../components/skeletons/ShimmerBlock";
 import { useAuth } from "../../context/AuthContext";
 import { colors, radius, spacing, typography } from "../../theme";
 import { getCategories, getTransactions } from "../../utils/api";
@@ -251,9 +252,58 @@ const AnalyticsScreen = () => {
       </View>
 
       {loading && (
-        <View style={[styles.summaryRow, { justifyContent: "center" }]}>
-          <Text style={styles.emptyText}>Carregando análises...</Text>
-        </View>
+        <>
+          <View style={styles.summaryRow}>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <View
+                key={index}
+                style={[styles.summaryCard, { borderColor: colors.border }]}
+              >
+                <ShimmerBlock width="60%" height={16} borderRadius={8} />
+                <View style={{ height: 10 }} />
+                <ShimmerBlock width="100%" height={24} borderRadius={10} />
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.section}>
+            <Card>
+              <Text style={styles.chartTitle}>Entradas vs. Saídas</Text>
+              <View style={styles.barChart}>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <View key={index} style={styles.barGroup}>
+                    <ShimmerBlock width="100%" height={80} borderRadius={8} />
+                    <View style={{ height: 8 }} />
+                    <ShimmerBlock width="60%" height={14} borderRadius={8} />
+                  </View>
+                ))}
+              </View>
+            </Card>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Maiores gastos</Text>
+            <Card>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.expRow,
+                    index < 3 && styles.expRowBorder,
+                    { alignItems: "center" },
+                  ]}
+                >
+                  <ShimmerBlock width={20} height={20} borderRadius={10} />
+                  <ShimmerBlock width="35%" height={14} borderRadius={8} />
+                  <View style={styles.expBarBg}>
+                    <ShimmerBlock width="70%" height={4} borderRadius={2} />
+                  </View>
+                  <ShimmerBlock width={52} height={14} borderRadius={8} />
+                </View>
+              ))}
+            </Card>
+          </View>
+        </>
       )}
       {error && (
         <View style={[styles.summaryRow, { justifyContent: "center" }]}>

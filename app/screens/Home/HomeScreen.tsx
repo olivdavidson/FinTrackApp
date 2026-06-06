@@ -25,6 +25,7 @@ import { useAuth } from "../../context/AuthContext";
 import { HomeStackParamList, MainTabParamList } from "../../navigation/types";
 import { getAccounts, getTransactions } from "../../utils/api";
 import { Account, Transaction } from "../../utils/mockData";
+import { ShimmerBlock } from "../../components/skeletons/ShimmerBlock";
 
 // Workaround para importar Platform nos styles
 //import { Platform } from "react-native";
@@ -164,9 +165,62 @@ const HomeScreen = () => {
           onPress={() => navigation.navigate("Profile")}
         />
       </View>
-      {loading && null}
-      {error && null}
+      {loading ? (
+        <View style={styles.skeletonContainer}>
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              <ShimmerBlock width={120} height={16} borderRadius={8} />
+              <View style={{ height: 8 }} />
+              <ShimmerBlock width={180} height={22} borderRadius={8} />
+            </View>
+            <ShimmerBlock width={40} height={40} borderRadius={20} />
+          </View>
 
+          <View style={styles.balanceCard}>
+            <ShimmerBlock width={140} height={18} borderRadius={8} />
+            <View style={{ height: 16 }} />
+            <ShimmerBlock width="70%" height={40} borderRadius={12} />
+            <View style={{ height: 24 }} />
+            <View style={styles.miniStats}>
+              <View style={styles.miniStat}>
+                <ShimmerBlock width="100%" height={48} borderRadius={16} />
+              </View>
+              <View style={styles.miniStat}>
+                <ShimmerBlock width="100%" height={48} borderRadius={16} />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.quickGrid}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <View key={index} style={styles.qaItem}>
+                  <ShimmerBlock width={52} height={52} borderRadius={16} />
+                  <ShimmerBlock width={60} height={12} borderRadius={8} />
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <ShimmerBlock width={120} height={18} borderRadius={8} />
+              <ShimmerBlock width={70} height={14} borderRadius={8} />
+            </View>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <View key={index} style={styles.txItem}>
+                <ShimmerBlock width={42} height={42} borderRadius={12} />
+                <View style={{ flex: 1 }}>
+                  <ShimmerBlock width="45%" height={16} borderRadius={8} />
+                  <View style={{ height: 8 }} />
+                  <ShimmerBlock width="35%" height={12} borderRadius={8} />
+                </View>
+                <ShimmerBlock width={60} height={16} borderRadius={8} />
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
       {/* Balance Card */}
       <LinearGradient
         colors={["#1E2A3A", "#162030"]}
@@ -295,6 +349,7 @@ const HomeScreen = () => {
           </View>
         ))}
       </View>
+      )}
 
       <View style={{ height: spacing.xl }} />
     </ScrollView>
@@ -303,6 +358,7 @@ const HomeScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+  skeletonContainer: { paddingBottom: spacing.xl },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
