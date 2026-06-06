@@ -221,134 +221,136 @@ const HomeScreen = () => {
           </View>
         </View>
       ) : (
-      {/* Balance Card */}
-      <LinearGradient
-        colors={["#1E2A3A", "#162030"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.balanceCard}
-      >
-        <View style={styles.balanceOrb} />
-        <Text style={styles.balanceLabel}>Saldo disponível</Text>
-        <Text style={styles.balanceAmount}>
-          <Text style={{ color: colors.accent }}>R$</Text>{" "}
-          {Math.floor(totalBalance).toLocaleString("pt-BR")}
-          <Text style={styles.balanceCents}>
-            ,{(totalBalance % 1).toFixed(2).slice(2)}
-          </Text>
-        </Text>
-        <View style={styles.balanceChange}>
-          <Ionicons
-            name="trending-up-outline"
-            size={14}
-            color={colors.accent}
-          />
-          <Text style={styles.balanceChangeText}>+3,2% este mês</Text>
-        </View>
-        <View style={styles.miniStats}>
-          <View style={styles.miniStat}>
-            <View style={styles.miniLabelRow}>
+        <>
+          {/* Balance Card */}
+          <LinearGradient
+            colors={["#1E2A3A", "#162030"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.balanceCard}
+          >
+            <View style={styles.balanceOrb} />
+            <Text style={styles.balanceLabel}>Saldo disponível</Text>
+            <Text style={styles.balanceAmount}>
+              <Text style={{ color: colors.accent }}>R$</Text>{" "}
+              {Math.floor(totalBalance).toLocaleString("pt-BR")}
+              <Text style={styles.balanceCents}>
+                ,{(totalBalance % 1).toFixed(2).slice(2)}
+              </Text>
+            </Text>
+            <View style={styles.balanceChange}>
               <Ionicons
-                name="arrow-up-outline"
-                size={12}
+                name="trending-up-outline"
+                size={14}
                 color={colors.accent}
               />
-              <Text style={styles.miniLabel}>Entradas</Text>
+              <Text style={styles.balanceChangeText}>+3,2% este mês</Text>
             </View>
-            <Text style={[styles.miniValue, { color: colors.accent }]}>
-              R${monthIncome.toLocaleString("pt-BR")}
-            </Text>
-          </View>
-          <View style={styles.miniStat}>
-            <View style={styles.miniLabelRow}>
-              <Ionicons
-                name="arrow-down-outline"
-                size={12}
-                color={colors.red}
-              />
-              <Text style={styles.miniLabel}>Saídas</Text>
-            </View>
-            <Text style={[styles.miniValue, { color: colors.red }]}>
-              R${monthExpense.toLocaleString("pt-BR")}
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <View style={styles.quickGrid}>
-          {QUICK_ACTIONS.map((item, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.qaItem}
-              onPress={() => {
-                const parentNavigation = navigation.getParent<TabNavProp>();
-                if (item.route === "Categories") {
-                  navigation.navigate("Categories");
-                } else {
-                  parentNavigation?.navigate(item.route);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.qaIcon, { borderColor: colors.border }]}>
-                <Ionicons name={item.icon} size={22} color={item.color} />
+            <View style={styles.miniStats}>
+              <View style={styles.miniStat}>
+                <View style={styles.miniLabelRow}>
+                  <Ionicons
+                    name="arrow-up-outline"
+                    size={12}
+                    color={colors.accent}
+                  />
+                  <Text style={styles.miniLabel}>Entradas</Text>
+                </View>
+                <Text style={[styles.miniValue, { color: colors.accent }]}>
+                  R${monthIncome.toLocaleString("pt-BR")}
+                </Text>
               </View>
-              <Text style={styles.qaLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+              <View style={styles.miniStat}>
+                <View style={styles.miniLabelRow}>
+                  <Ionicons
+                    name="arrow-down-outline"
+                    size={12}
+                    color={colors.red}
+                  />
+                  <Text style={styles.miniLabel}>Saídas</Text>
+                </View>
+                <Text style={[styles.miniValue, { color: colors.red }]}>
+                  R${monthExpense.toLocaleString("pt-BR")}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
 
-      {/* Recent Transactions */}
-      {isEmptyState && (
-        <View style={styles.section}>
-          <Card style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Vamos começar?</Text>
-            <Text style={styles.emptyDesc}>
-              Seu saldo está zerado. Adicione sua primeira entrada ou saída para
-              começar a controlar suas finanças.
-            </Text>
-            <TouchableOpacity
-              style={styles.ctaButton}
-              onPress={() => {
-                const parentNavigation = navigation.getParent<TabNavProp>();
-                // Navega para a aba de Transações e tenta abrir o formulário
-                parentNavigation?.navigate("Transactions", {
-                  screen: "AddTransaction",
-                } as any);
-              }}
-            >
-              <Text style={styles.ctaButtonText}>Criar primeira transação</Text>
-            </TouchableOpacity>
-          </Card>
-        </View>
-      )}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recentes</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>Ver todas</Text>
-          </TouchableOpacity>
-        </View>
-        {recentTxs.map((tx) => (
-          <View key={tx.id} style={styles.txItem}>
-            <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
-              <Ionicons
-                name={txIconMap[tx.icon] ?? "card-outline"}
-                size={20}
-                color={tx.iconColor}
-              />
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <View style={styles.quickGrid}>
+              {QUICK_ACTIONS.map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.qaItem}
+                  onPress={() => {
+                    const parentNavigation = navigation.getParent<TabNavProp>();
+                    if (item.route === "Categories") {
+                      navigation.navigate("Categories");
+                    } else {
+                      parentNavigation?.navigate(item.route);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.qaIcon, { borderColor: colors.border }]}>
+                    <Ionicons name={item.icon} size={22} color={item.color} />
+                  </View>
+                  <Text style={styles.qaLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-            <View style={styles.txInfo}>
-              <Text style={styles.txName}>{tx.name}</Text>
-              <Text style={styles.txDate}>{tx.category}</Text>
-            </View>
-            <AmountText value={tx.amount} size={15} />
           </View>
-        ))}
-      </View>
+
+          {/* Recent Transactions */}
+          {isEmptyState && (
+            <View style={styles.section}>
+              <Card style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>Vamos começar?</Text>
+                <Text style={styles.emptyDesc}>
+                  Seu saldo está zerado. Adicione sua primeira entrada ou saída para
+                  começar a controlar suas finanças.
+                </Text>
+                <TouchableOpacity
+                  style={styles.ctaButton}
+                  onPress={() => {
+                    const parentNavigation = navigation.getParent<TabNavProp>();
+                    // Navega para a aba de Transações e tenta abrir o formulário
+                    parentNavigation?.navigate("Transactions", {
+                      screen: "AddTransaction",
+                    } as any);
+                  }}
+                >
+                  <Text style={styles.ctaButtonText}>Criar primeira transação</Text>
+                </TouchableOpacity>
+              </Card>
+            </View>
+          )}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recentes</Text>
+              <TouchableOpacity>
+                <Text style={styles.seeAll}>Ver todas</Text>
+              </TouchableOpacity>
+            </View>
+            {recentTxs.map((tx) => (
+              <View key={tx.id} style={styles.txItem}>
+                <View style={[styles.txIcon, { backgroundColor: tx.iconBg }]}>
+                  <Ionicons
+                    name={txIconMap[tx.icon] ?? "card-outline"}
+                    size={20}
+                    color={tx.iconColor}
+                  />
+                </View>
+                <View style={styles.txInfo}>
+                  <Text style={styles.txName}>{tx.name}</Text>
+                  <Text style={styles.txDate}>{tx.category}</Text>
+                </View>
+                <AmountText value={tx.amount} size={15} />
+              </View>
+            ))}
+          </View>
+        </>
       )}
 
       <View style={{ height: spacing.xl }} />
