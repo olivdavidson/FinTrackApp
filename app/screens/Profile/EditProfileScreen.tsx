@@ -3,24 +3,24 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Button,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Button,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../../components/common/ToastProvider";
 import { useAuth } from "../../context/AuthContext";
 import { colors, spacing, typography } from "../../theme";
 import {
-    updateProfile as updateProfileApi,
-    uploadAvatar,
+  updateProfile as updateProfileApi,
+  uploadAvatar,
 } from "../../utils/api";
 
 const EditProfileScreen = () => {
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   placeholderText: { fontSize: 18, fontWeight: "600", color: colors.text2 },
-  placeholderSub: { fontSize: 13, color: colors.text3 },
+  placeholderSub: { fontSize: 13, color: colors.text2 },
   form: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
   avatarPicker: { alignItems: "center", marginBottom: spacing.lg },
   avatarImage: {
