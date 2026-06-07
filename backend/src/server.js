@@ -13,9 +13,14 @@ const dataRoutes = require("./routes/data");
 const envPath =
   process.env.NODE_ENV === "production"
     ? path.resolve(__dirname, "../.env.production")
-    : path.resolve(__dirname, "../../.env");
+    : path.resolve(__dirname, "../.env");
 
-dotenv.config({ path: envPath });
+const envResult = dotenv.config({ path: envPath });
+if (envResult.error) {
+  console.warn(
+    `⚠️ Variáveis de ambiente não foram carregadas de ${envPath}. Crie um arquivo .env em backend/ ou exporte as variáveis no ambiente.`,
+  );
+}
 
 const app = express();
 const PORT = process.env.PORT || 4000;

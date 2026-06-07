@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.olidavidson.FinTrackApp"
     },
-    "package": "com.dom.fintrackapp",
+    "package": "com.olidavidson.FinTrackApp",
     "plugins": [
       [
         "expo-splash-screen",
@@ -37,8 +37,7 @@
         }
       ],
       "expo-web-browser",
-      "expo-font",
-      "expo-router"
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
