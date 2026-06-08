@@ -69,11 +69,15 @@ const globalLimiter = rateLimit({
 const allowedOrigins =
   process.env.NODE_ENV === "production"
     ? [
-        "https://seu-app-expo.onrender.com", // Seu app web (se existir)
+        "https://fintrackapp-6qo9.onrender.com", // Seu app web (se existir)
         "exp://", // Expo Go
         "http://localhost:19000", // Desenvolvimento local
         "http://localhost:19001",
         "http://localhost:19002",
+        "http://localhost:8081", // ⭐ Porto do Expo Go
+        "exp://", // ⭐ Expo Go scheme
+        "exp+expo-go://", // ⭐ Expo Go (iOS)
+        /\.expo\.dev$/, // ⭐ Qualquer subdomínio do Expo
       ]
     : ["*"]; // Em desenvolvimento, permite tudo (mas só local)
 
