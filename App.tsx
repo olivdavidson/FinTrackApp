@@ -12,9 +12,11 @@ import { colors } from "./app/theme";
 
 // Mantém a splash screen visível enquanto carregamos recursos
 SplashScreen.preventAutoHideAsync();
+console.log("PASSOU IMPORTS");
 
 export default function App() {
   const [appReady, setAppReady] = useState(false);
+  console.log("ENTROU NO APP");
 
   useEffect(() => {
     async function prepare() {
