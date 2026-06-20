@@ -1,7 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import {
+  BottomTabBarProps,
+  createBottomTabNavigator,
+} from "@react-navigation/bottom-tabs";
 import React from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../theme";
 import { MainTabParamList } from "./types";
 
@@ -34,29 +38,84 @@ const TAB_CONFIG: Record<
   Profile: { label: "Perfil", icon: "person-outline", iconActive: "person" },
 };
 
-const MainTabNavigator = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => {
-      const config = TAB_CONFIG[route.name as keyof MainTabParamList];
-      return {
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
-        tabBarIcon: ({ focused, size }) => (
-          <View style={styles.tabItem}>
-            {focused && <View style={styles.tabDot} />}
-            <Ionicons
-              name={focused ? config.iconActive : config.icon}
-              size={22}
-              color={focused ? colors.accent : colors.text3}
-            />
-            <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
+const CustomTabBar = ({
+  state,
+  descriptors,
+  navigation,
+}: BottomTabBarProps) => {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        styles.tabBar,
+        {
+          paddingBottom: insets.bottom ? insets.bottom + 12 : 16,
+          marginHorizontal: 12,
+        },
+      ]}
+    >
+      {state.routes.map((route, index) => {
+        const config = TAB_CONFIG[route.name as keyof MainTabParamList];
+        const isFocused = state.index === index;
+        const { options } = descriptors[route.key];
+
+        const onPress = () => {
+          const event = navigation.emit({
+            type: "tabPress",
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name);
+          }
+        };
+
+        const onLongPress = () => {
+          navigation.emit({
+            type: "tabLongPress",
+            target: route.key,
+          });
+        };
+
+        return (
+          <TouchableOpacity
+            key={route.key}
+            accessibilityRole="button"
+            accessibilityState={isFocused ? { selected: true } : {}}
+            accessibilityLabel={options.tabBarAccessibilityLabel}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            style={[styles.tabItem, isFocused && styles.tabItemActive]}
+            activeOpacity={0.85}
+          >
+            <View
+              style={[
+                styles.iconWrapper,
+                isFocused && styles.iconWrapperActive,
+              ]}
+            >
+              <Ionicons
+                name={isFocused ? config.iconActive : config.icon}
+                size={22}
+                color={isFocused ? colors.bg : colors.text3}
+              />
+            </View>
+            <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
               {config.label}
             </Text>
-          </View>
-        ),
-      };
-    }}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
+const MainTabNavigator = () => (
+  <Tab.Navigator
+    screenOptions={{ headerShown: false, tabBarShowLabel: false }}
+    tabBar={(props) => <CustomTabBar {...props} />}
   >
     <Tab.Screen name="Home" component={HomeNavigator} />
     <Tab.Screen name="Balance" component={BalanceScreen} />
@@ -68,31 +127,47 @@ const MainTabNavigator = () => (
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: "rgba(10,15,30,0.97)",
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: Platform.OS === "ios" ? 84 : 68,
-    paddingBottom: Platform.OS === "ios" ? 24 : 8,
-    paddingTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.bg,
+    borderRadius: 28,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.14,
+    shadowRadius: 28,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   tabItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    minWidth: 52,
+    paddingVertical: 8,
+    marginHorizontal: 2,
   },
-  tabDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+  tabItemActive: {
+    backgroundColor: "rgba(79,255,176,0.1)",
+    borderRadius: 20,
+  },
+  iconWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 44,
+    height: 44,
+    borderRadius: 18,
+  },
+  iconWrapperActive: {
     backgroundColor: colors.accent,
-    position: "absolute",
-    top: -10,
   },
   tabLabel: {
+    marginTop: 4,
     fontSize: 10,
     color: colors.text3,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   tabLabelActive: {
     color: colors.accent,
