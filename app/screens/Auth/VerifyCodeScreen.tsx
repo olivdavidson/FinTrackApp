@@ -2,32 +2,51 @@ import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../../context/AuthContext";
 import { AuthStackParamList } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
-import { resendOtpCode, verifyOtpCode } from "../../utils/api";
+import {
+    resendOtpCode,
+    sendPhoneVerificationCode,
+    verifyOtpCode,
+} from "../../utils/api";
+
+const maskPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 8) return phone;
+  const last4 = digits.slice(-4);
+  const masked = digits.slice(0, -4).replace(/\d/g, "*");
+  return `${masked}${last4}`;
+};
 
 type Props = NativeStackScreenProps<AuthStackParamList, "VerifyCode">;
 
 const VerifyCodeScreen = ({ navigation, route }: Props) => {
   const insets = useSafeAreaInsets();
-  const { userId, identifier } = route.params;
+  const { userId, identifier, registerPayload } = route.params;
   const [code, setCode] = useState("");
   const [timer, setTimer] = useState(60);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { register } = useAuth();
+
+  const displayIdentifier = registerPayload
+    ? maskPhone(registerPayload.phone)
+    : identifier;
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -49,11 +68,40 @@ const VerifyCodeScreen = ({ navigation, route }: Props) => {
     setErrorMessage(null);
 
     try {
-      await verifyOtpCode(userId, code.trim());
-      navigation.navigate("ResetPassword", {
-        userId,
-        otpCode: code.trim(),
-      });
+      if (registerPayload) {
+        // Completa o registro usando o código recebido
+        await register(
+          registerPayload.name,
+          registerPayload.email,
+          registerPayload.phone,
+          registerPayload.password,
+          code.trim(),
+        );
+
+        // Após registro bem-sucedido, navegar para área principal
+        const rootNav = navigation.getParent();
+        if (rootNav) {
+          try {
+            rootNav.navigate(
+              "Main" as any,
+              {
+                screen: "Transactions",
+                params: { screen: "AddTransaction" },
+              } as any,
+            );
+          } catch (e) {
+            rootNav.navigate("Main" as any, { screen: "Transactions" } as any);
+          }
+        }
+      } else if (userId) {
+        await verifyOtpCode(userId, code.trim());
+        navigation.navigate("ResetPassword", {
+          userId,
+          otpCode: code.trim(),
+        });
+      } else {
+        setErrorMessage("Dados de verificação ausentes.");
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Erro ao validar código.",
@@ -68,7 +116,13 @@ const VerifyCodeScreen = ({ navigation, route }: Props) => {
     setErrorMessage(null);
 
     try {
-      await resendOtpCode(userId);
+      if (registerPayload) {
+        await sendPhoneVerificationCode(registerPayload.phone);
+      } else if (userId) {
+        await resendOtpCode(userId);
+      } else {
+        throw new Error("Dados de verificação ausentes.");
+      }
       setTimer(60);
       Alert.alert("Código reenviado", "Confira o SMS enviado ao telefone.");
     } catch (error) {
@@ -110,8 +164,14 @@ const VerifyCodeScreen = ({ navigation, route }: Props) => {
 
         <Text style={styles.heading}>Verificar código</Text>
         <Text style={styles.subheading}>
-          Digite o código enviado para {identifier}.
+          Digite o código enviado para {displayIdentifier}.
         </Text>
+        {registerPayload ? (
+          <Text style={styles.infoText}>
+            Verificação por SMS após cadastro. Insira o código recebido no
+            celular para concluir a criação da sua conta.
+          </Text>
+        ) : null}
 
         <Text style={styles.label}>Código SMS</Text>
         <View style={styles.inputWrapper}>
@@ -202,6 +262,12 @@ const styles = StyleSheet.create({
     color: colors.text2,
     fontWeight: "500",
     marginBottom: 6,
+  },
+  infoText: {
+    color: colors.text2,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: spacing.lg,
   },
   inputWrapper: {
     backgroundColor: colors.card,

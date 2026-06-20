@@ -38,13 +38,10 @@ const RegisterScreen = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneCode, setPhoneCode] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sendingCode, setSendingCode] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { register } = useAuth();
 
@@ -72,34 +69,11 @@ const RegisterScreen = () => {
         ? "#FBBF24"
         : "#34D399";
 
-  const handleSendPhoneCode = async () => {
-    if (phone.replace(/\D/g, "").length < 10) {
-      setErrorMessage("Informe um telefone válido para receber o código.");
-      return;
-    }
-
-    setSendingCode(true);
-    setErrorMessage(null);
-
-    try {
-      await sendPhoneVerificationCode(phone.trim());
-      setCodeSent(true);
-      Alert.alert("Código enviado", "Verifique o SMS recebido no telefone.");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Erro ao enviar código.",
-      );
-    } finally {
-      setSendingCode(false);
-    }
-  };
-
   const handleRegister = async () => {
     if (
       !name.trim() ||
       !email.trim() ||
       !phone.trim() ||
-      !phoneCode.trim() ||
       !password ||
       !confirmPassword
     ) {
@@ -119,38 +93,27 @@ const RegisterScreen = () => {
       return;
     }
 
+    // Envia código e redireciona para tela de verificação onde o usuário
+    // informará o token recebido por SMS para concluir o cadastro.
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      await register(
-        name.trim(),
-        email.trim(),
-        phone.trim(),
-        password,
-        phoneCode.trim(),
-      );
-      // Após cadastro bem-sucedido, navegar para a aba principal de Transações
-      // e abrir o formulário de Adicionar Transação para o usuário criar
-      // sua primeira entrada/saída.
-      const rootNav = navigation.getParent();
-      if (rootNav) {
-        try {
-          rootNav.navigate(
-            "Main" as any,
-            {
-              screen: "Transactions",
-              params: { screen: "AddTransaction" },
-            } as any,
-          );
-        } catch (e) {
-          // Fallback: apenas navegar para a aba Transactions
-          rootNav.navigate("Main" as any, { screen: "Transactions" } as any);
-        }
-      }
+      const resp = await sendPhoneVerificationCode(phone.trim());
+
+      navigation.navigate("VerifyCode", {
+        // encaminha os dados de cadastro para completar após verificação
+        registerPayload: {
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          password,
+        },
+        identifier: resp?.phone || phone.trim(),
+      } as any);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Erro ao cadastrar usuário.",
+        error instanceof Error ? error.message : "Erro ao enviar código SMS.",
       );
     } finally {
       setLoading(false);
@@ -240,52 +203,16 @@ const RegisterScreen = () => {
           <TextInput
             style={styles.input}
             value={phone}
-            onChangeText={(value) => {
-              setPhone(value);
-              setCodeSent(false);
-            }}
+            onChangeText={setPhone}
             placeholder="(92) 99999-9999"
             placeholderTextColor={colors.text3}
             keyboardType="phone-pad"
           />
         </View>
-
-        <TouchableOpacity
-          style={[
-            styles.btnSecondary,
-            sendingCode && styles.btnPrimaryLoading,
-          ]}
-          onPress={handleSendPhoneCode}
-          activeOpacity={0.85}
-          disabled={sendingCode}
-        >
-          {sendingCode ? (
-            <ActivityIndicator color={colors.accent} />
-          ) : (
-            <Text style={styles.btnSecondaryText}>
-              {codeSent ? "Reenviar código SMS" : "Enviar código SMS"}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <Text style={styles.label}>Código SMS</Text>
-        <View style={styles.inputWrapper}>
-          <Ionicons
-            name="shield-checkmark-outline"
-            size={18}
-            color={colors.text3}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            value={phoneCode}
-            onChangeText={setPhoneCode}
-            placeholder="000000"
-            placeholderTextColor={colors.text3}
-            keyboardType="number-pad"
-            maxLength={10}
-          />
-        </View>
+        <Text style={styles.helpText}>
+          Depois de confirmar seus dados, enviaremos um código SMS para o
+          telefone informado para completar seu cadastro.
+        </Text>
 
         <Text style={styles.label}>Senha</Text>
         <View style={styles.inputWrapper}>
@@ -376,7 +303,9 @@ const RegisterScreen = () => {
           {loading ? (
             <ActivityIndicator color={colors.bg} />
           ) : (
-            <Text style={styles.btnPrimaryText}>Cadastrar</Text>
+            <Text style={styles.btnPrimaryText}>
+              Confirmar e enviar código SMS
+            </Text>
           )}
         </TouchableOpacity>
 
@@ -445,6 +374,12 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     marginBottom: 6,
   },
+  helpText: {
+    color: colors.text2,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: spacing.lg,
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -464,9 +399,16 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: "center",
     marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   btnPrimaryLoading: { opacity: 0.8 },
-  btnPrimaryText: { color: colors.bg, fontSize: 15, fontWeight: "700" },
+  btnPrimaryText: {
+    color: colors.bg,
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 20,
+  },
   btnSecondary: {
     borderWidth: 1,
     borderColor: colors.accent,

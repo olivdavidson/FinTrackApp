@@ -3,24 +3,24 @@ import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Button,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Button,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useToast } from "../../components/common/ToastProvider";
 import { useAuth } from "../../context/AuthContext";
 import { colors, spacing, typography } from "../../theme";
 import {
-  updateProfile as updateProfileApi,
-  uploadAvatar,
+    updateProfile as updateProfileApi,
+    uploadAvatar,
 } from "../../utils/api";
 
 const EditProfileScreen = () => {
@@ -75,8 +75,8 @@ const EditProfileScreen = () => {
         aspect: [1, 1],
       });
 
-      if (!result.cancelled) {
-        setAvatar(result.uri);
+      if (!result.canceled && result.assets?.length > 0) {
+        setAvatar(result.assets[0].uri);
       }
     } catch (err) {
       console.warn(err);

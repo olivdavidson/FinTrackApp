@@ -1,7 +1,6 @@
 import { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Category } from "../utils/mockData";
-import { Transaction } from "../utils/mockData";
+import { Category, Transaction } from "../utils/mockData";
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -9,9 +8,15 @@ export type AuthStackParamList = {
   Register: undefined;
   ForgotPassword: undefined;
   VerifyCode: {
-    userId: string;
+    userId?: string;
     identifier: string;
     isEmail?: boolean;
+    registerPayload?: {
+      name: string;
+      email: string;
+      phone: string;
+      password: string;
+    };
   };
   ResetPassword: {
     userId: string;
