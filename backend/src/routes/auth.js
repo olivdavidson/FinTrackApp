@@ -299,32 +299,248 @@ router.post(
 // ─────────────────────────────────────────────────────────────────────────────
 router.post("/social-login", async (req, res) => {
   try {
-    const { provider, providerId, email, name, avatar } = req.body;
+    const {
+      provider,
+      providerId: clerkProviderId,
+      email: clerkEmail,
+      name: clerkName,
+      avatar: clerkAvatar,
+      idToken,
+      accessToken: providerAccessToken,
+      code,
+      redirectUri,
+      codeVerifier,
+    } = req.body;
 
-    if (!provider || !providerId) {
+    if (!provider) {
       return res.status(400).json({
         success: false,
-        message: "Provider e providerId são obrigatórios.",
+        message: "Provider é obrigatório.",
       });
     }
 
-    // Tenta encontrar por providerId ou por e-mail (para vincular conta existente)
+    if (clerkProviderId) {
+      const email =
+        clerkEmail?.toLowerCase() ||
+        `${provider}.${clerkProviderId}@social.fintrack.local`;
+      let user = await User.findOne({
+        $or: [{ provider, providerId: clerkProviderId }, { email }],
+      });
+
+      if (!user) {
+        user = await User.create({
+          name: clerkName || email.split("@")[0],
+          email,
+          provider,
+          providerId: clerkProviderId,
+          avatar: clerkAvatar || null,
+          isEmailVerified: true,
+        });
+      } else {
+        user.provider = provider;
+        user.providerId = clerkProviderId;
+        if (clerkName && !user.name) user.name = clerkName;
+        if (clerkAvatar && !user.avatar) user.avatar = clerkAvatar;
+        user.isEmailVerified = true;
+        await user.save();
+      }
+
+      const appAccessToken = generateAccessToken(user._id);
+      const appRefreshToken = generateRefreshToken(user._id);
+
+      await User.findByIdAndUpdate(user._id, {
+        $push: { refreshTokens: { $each: [appRefreshToken], $slice: -5 } },
+        lastLoginAt: new Date(),
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          user,
+          accessToken: appAccessToken,
+          refreshToken: appRefreshToken,
+        },
+      });
+    }
+
+    let profile = null;
+
+    if (provider === "google") {
+      if (!idToken) {
+        return res.status(400).json({
+          success: false,
+          message: "idToken do Google é obrigatório.",
+        });
+      }
+
+      const response = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(
+          idToken,
+        )}`,
+      );
+
+      if (!response.ok) {
+        return res.status(401).json({
+          success: false,
+          message: "Token do Google inválido.",
+        });
+      }
+
+      profile = await response.json();
+      if (!profile.sub || !profile.email) {
+        return res.status(401).json({
+          success: false,
+          message: "Não foi possível verificar o perfil do Google.",
+        });
+      }
+    } else if (provider === "facebook") {
+      if (!providerAccessToken) {
+        return res.status(400).json({
+          success: false,
+          message: "accessToken do Facebook é obrigatório.",
+        });
+      }
+
+      const response = await fetch(
+        `https://graph.facebook.com/me?fields=id,name,email,picture.type(large)&access_token=${encodeURIComponent(
+          providerAccessToken,
+        )}`,
+      );
+
+      if (!response.ok) {
+        return res.status(401).json({
+          success: false,
+          message: "Token do Facebook inválido.",
+        });
+      }
+
+      profile = await response.json();
+      if (!profile.id || !profile.email) {
+        return res.status(401).json({
+          success: false,
+          message: "Não foi possível verificar o perfil do Facebook.",
+        });
+      }
+    } else if (provider === "x") {
+      if (!code || !redirectUri || !codeVerifier) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "code, redirectUri e codeVerifier são obrigatórios para login via X.",
+        });
+      }
+
+      const clientId = process.env.TWITTER_CLIENT_ID;
+      const clientSecret = process.env.TWITTER_CLIENT_SECRET;
+      if (!clientId || !clientSecret) {
+        return res.status(500).json({
+          success: false,
+          message: "Credenciais do X/Twitter não configuradas no backend.",
+        });
+      }
+
+      const tokenResponse = await fetch(
+        "https://api.twitter.com/2/oauth2/token",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            grant_type: "authorization_code",
+            code,
+            redirect_uri: redirectUri,
+            client_id: clientId,
+            code_verifier: codeVerifier,
+          }).toString(),
+        },
+      );
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        return res.status(401).json({
+          success: false,
+          message: `Falha ao trocar código do X: ${errorText}`,
+        });
+      }
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenData.access_token) {
+        return res.status(401).json({
+          success: false,
+          message: "Não foi possível obter o access token do X.",
+        });
+      }
+
+      const userResponse = await fetch(
+        "https://api.twitter.com/2/users/me?user.fields=profile_image_url,name,username",
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        },
+      );
+
+      if (!userResponse.ok) {
+        return res.status(401).json({
+          success: false,
+          message: "Não foi possível verificar o perfil do X.",
+        });
+      }
+
+      profile = await userResponse.json();
+      if (!profile.data || !profile.data.id) {
+        return res.status(401).json({
+          success: false,
+          message: "Não foi possível extrair o perfil do X.",
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Provider inválido.",
+      });
+    }
+
+    const providerId =
+      provider === "google"
+        ? profile.sub
+        : provider === "facebook"
+          ? profile.id
+          : profile.data?.id;
+    const email =
+      provider === "google"
+        ? profile.email
+        : provider === "facebook"
+          ? profile.email
+          : `${profile.data?.username}@twitter.com`;
+    const name =
+      provider === "google"
+        ? profile.name
+        : provider === "facebook"
+          ? profile.name
+          : profile.data?.name;
+    const avatar =
+      provider === "google"
+        ? profile.picture
+        : provider === "facebook"
+          ? profile.picture?.data?.url
+          : profile.data?.profile_image_url;
+
     let user = await User.findOne({
       $or: [{ provider, providerId }, { email: email?.toLowerCase() }],
     });
 
     if (!user) {
-      // Cria conta nova para login social (sem senha)
       user = await User.create({
         name,
         email: email?.toLowerCase(),
         provider,
         providerId,
         avatar,
-        isEmailVerified: true, // e-mail já validado pelo provedor social
+        isEmailVerified: true,
       });
     } else if (user.provider !== provider) {
-      // Vincula o provider social à conta existente de e-mail
       user.provider = provider;
       user.providerId = providerId;
       if (avatar && !user.avatar) user.avatar = avatar;
@@ -717,12 +933,10 @@ router.post(
       return res.json({ success: true, data: { user } });
     } catch (error) {
       console.error("[/me/avatar]", error);
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: error.message || "Não foi possível enviar avatar.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Não foi possível enviar avatar.",
+      });
     }
   },
 );
@@ -793,12 +1007,10 @@ router.post("/2fa/send", requireAuth, smsLimiter, async (req, res) => {
     return res.json({ success: true, message: "Código enviado por SMS." });
   } catch (error) {
     console.error("[/2fa/send]", error);
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: error.message || "Não foi possível enviar o código.",
-      });
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Não foi possível enviar o código.",
+    });
   }
 });
 
@@ -837,12 +1049,10 @@ router.post(
       });
     } catch (error) {
       console.error("[/2fa/verify]", error);
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: error.message || "Não foi possível verificar o código.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Não foi possível verificar o código.",
+      });
     }
   },
 );
@@ -880,12 +1090,10 @@ router.post(
       });
     } catch (error) {
       console.error("[/2fa/disable]", error);
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: error.message || "Não foi possível desativar 2FA.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Não foi possível desativar 2FA.",
+      });
     }
   },
 );

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useClerk, useSSO } from "@clerk/expo";
 import {
     CompositeNavigationProp,
     useNavigation,
@@ -31,15 +32,80 @@ type NavProp = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
+type SocialProvider = "google" | "facebook" | "x";
+type ClerkOAuthStrategy = "oauth_google" | "oauth_facebook" | "oauth_x";
+
+const socialStrategies: Record<SocialProvider, ClerkOAuthStrategy> = {
+  google: "oauth_google",
+  facebook: "oauth_facebook",
+  x: "oauth_x",
+};
+
 const LoginScreen = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavProp>();
+  const clerk = useClerk();
+  const { startSSOFlow } = useSSO();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { signIn } = useAuth();
+  const { signIn, signInWithSocial } = useAuth();
+
+  const handleSocialLogin = async (provider: SocialProvider) => {
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      if (!process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+        throw new Error(
+          "Clerk não está configurado. Defina EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY.",
+        );
+      }
+
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: socialStrategies[provider] as any,
+      });
+
+      if (!createdSessionId || !setActive) {
+        throw new Error("Autenticação cancelada ou falhou.");
+      }
+
+      await setActive({ session: createdSessionId });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const clerkUser = (clerk as any).user;
+      if (!clerkUser?.id) {
+        throw new Error("Não foi possível carregar o perfil do Clerk.");
+      }
+
+      const primaryEmail =
+        clerkUser.primaryEmailAddress?.emailAddress ||
+        clerkUser.emailAddresses?.[0]?.emailAddress;
+      const name =
+        clerkUser.fullName ||
+        [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") ||
+        primaryEmail?.split("@")[0] ||
+        "Usuário";
+
+      await signInWithSocial({
+        provider,
+        providerId: clerkUser.id,
+        email: primaryEmail,
+        name,
+        avatar: clerkUser.imageUrl || null,
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Erro ao autenticar com o provedor social.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -61,17 +127,9 @@ const LoginScreen = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    Alert.alert("Em breve", "Login social ainda não está implementado.");
-  };
-
-  const handleFacebookLogin = async () => {
-    Alert.alert("Em breve", "Login social ainda não está implementado.");
-  };
-
-  const handleXLogin = async () => {
-    Alert.alert("Em breve", "Login social ainda não está implementado.");
-  };
+  const handleGoogleLogin = async () => handleSocialLogin("google");
+  const handleFacebookLogin = async () => handleSocialLogin("facebook");
+  const handleXLogin = async () => handleSocialLogin("x");
 
   return (
     <KeyboardAvoidingView

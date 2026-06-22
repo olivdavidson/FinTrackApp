@@ -20,7 +20,6 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAuth } from "../../context/AuthContext";
 import { AuthStackParamList, RootStackParamList } from "../../navigation/types";
 import { colors, radius, spacing, typography } from "../../theme";
 import { sendPhoneVerificationCode } from "../../utils/api";
@@ -43,7 +42,6 @@ const RegisterScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { register } = useAuth();
 
   const getPasswordStrength = (value: string) => {
     let score = 0;

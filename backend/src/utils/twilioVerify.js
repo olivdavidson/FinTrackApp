@@ -39,10 +39,20 @@ const sendVerificationCode = async (phone, channel = "sms") => {
   const { client, serviceSid } = getClient();
   const to = normalizePhone(phone);
 
-  return client.verify.v2.services(serviceSid).verifications.create({
-    to,
-    channel,
-  });
+  try {
+    return await client.verify.v2.services(serviceSid).verifications.create({
+      to,
+      channel,
+    });
+  } catch (error) {
+    // Erro 21608: Serviço indisponível!
+    if (error.code === 21608) {
+      const err = new Error("Serviço de autenticação indisponível no momento.");
+      err.code = 21608;
+      throw err;
+    }
+    throw error;
+  }
 };
 
 const checkVerificationCode = async (phone, code) => {

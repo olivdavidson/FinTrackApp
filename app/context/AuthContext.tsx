@@ -1,5 +1,7 @@
+import { useClerk } from "@clerk/expo";
 import React, {
     createContext,
+    useCallback,
     useContext,
     useEffect,
     useMemo,
@@ -7,11 +9,13 @@ import React, {
 } from "react";
 import {
     LoginResponse,
+    SocialLoginPayload,
     getCurrentUser,
     loginWithEmail,
     logout as logoutRequest,
     refreshAccessToken,
     registerWithEmail,
+    socialLogin,
 } from "../utils/api";
 import { clearAuthData, loadAuthData, saveAuthData } from "../utils/storage";
 
@@ -38,6 +42,7 @@ type AuthContextData = {
     password: string,
     phoneCode: string,
   ) => Promise<LoginResponse>;
+  signInWithSocial: (payload: SocialLoginPayload) => Promise<LoginResponse>;
   signOut: () => Promise<void>;
   updateTokens: (accessToken: string, refreshToken: string) => Promise<void>;
   updateProfile: (partial: Partial<User>) => Promise<void>;
@@ -46,6 +51,7 @@ type AuthContextData = {
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const { signOut: signOutClerk } = useClerk();
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
@@ -65,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(data.user);
           setAccessToken(stored.accessToken);
           setRefreshToken(stored.refreshToken);
-        } catch (error) {
+        } catch {
           const refreshed = await refreshAccessToken(stored.refreshToken);
           const data = await getCurrentUser(refreshed.accessToken);
           setUser(data.user);
@@ -88,7 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     restoreAuth();
   }, []);
 
-  const persistAuth = async (authData: LoginResponse) => {
+  const persistAuth = useCallback(async (authData: LoginResponse) => {
     setUser(authData.user);
     setAccessToken(authData.accessToken);
     setRefreshToken(authData.refreshToken);
@@ -98,9 +104,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       authData.accessToken,
       authData.refreshToken,
     );
-  };
+  }, []);
 
-  const updateProfile = async (partial: Partial<User>) => {
+  const updateProfile = useCallback(async (partial: Partial<User>) => {
     setUser((prev) => {
       const next = prev ? { ...prev, ...partial } : (partial as User);
       // persist to storage with current tokens (may be null during anonymous)
@@ -118,15 +124,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return next;
     });
-  };
+  }, [accessToken, refreshToken]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const authData = await loginWithEmail(email, password);
     await persistAuth(authData);
     return authData;
-  };
+  }, [persistAuth]);
 
-  const register = async (
+  const signInWithSocial = useCallback(async (payload: SocialLoginPayload) => {
+    const authData = await socialLogin(payload);
+    await persistAuth(authData);
+    return authData;
+  }, [persistAuth]);
+
+  const register = useCallback(async (
     name: string,
     email: string,
     phone: string,
@@ -142,9 +154,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
     await persistAuth(authData);
     return authData;
-  };
+  }, [persistAuth]);
 
-  const updateTokens = async (
+  const updateTokens = useCallback(async (
     newAccessToken: string,
     newRefreshToken: string,
   ) => {
@@ -153,9 +165,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (user) {
       await saveAuthData(JSON.stringify(user), newAccessToken, newRefreshToken);
     }
-  };
+  }, [user]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       if (refreshToken) {
         await logoutRequest(accessToken, refreshToken);
@@ -163,12 +175,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.warn("Erro ao fazer logout no servidor:", error);
     } finally {
+      try {
+        await signOutClerk();
+      } catch (error) {
+        console.warn("Erro ao encerrar sessão do Clerk:", error);
+      }
       setUser(null);
       setAccessToken(null);
       setRefreshToken(null);
       await clearAuthData();
     }
-  };
+  }, [accessToken, refreshToken, signOutClerk]);
 
   const value = useMemo(
     () => ({
@@ -177,12 +194,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       refreshToken,
       loading,
       signIn,
+      signInWithSocial,
       register,
       signOut,
       updateTokens,
       updateProfile,
     }),
-    [user, accessToken, refreshToken, loading],
+    [
+      user,
+      accessToken,
+      refreshToken,
+      loading,
+      signIn,
+      signInWithSocial,
+      register,
+      signOut,
+      updateTokens,
+      updateProfile,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

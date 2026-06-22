@@ -70,6 +70,33 @@ export async function loginWithEmail(
 
 export type RegisterResponse = LoginResponse;
 
+export type SocialLoginPayload = {
+  provider: "google" | "facebook" | "x";
+  providerId?: string;
+  email?: string;
+  name?: string;
+  avatar?: string | null;
+  idToken?: string;
+  accessToken?: string;
+  code?: string;
+  redirectUri?: string;
+  codeVerifier?: string;
+};
+
+export async function socialLogin(
+  payload: SocialLoginPayload,
+): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/social-login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson(response);
+}
+
 export async function registerWithEmail(
   name: string,
   email: string,

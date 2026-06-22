@@ -1,3 +1,5 @@
+import { ClerkProvider } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
 import { NavigationContainer } from "@react-navigation/native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -12,11 +14,11 @@ import { colors } from "./app/theme";
 
 // Mantém a splash screen visível enquanto carregamos recursos
 SplashScreen.preventAutoHideAsync();
-console.log("PASSOU IMPORTS");
+
+const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export default function App() {
   const [appReady, setAppReady] = useState(false);
-  console.log("ENTROU NO APP");
 
   useEffect(() => {
     async function prepare() {
@@ -41,21 +43,26 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <View
-          style={{ flex: 1, backgroundColor: colors.bg }}
-          onLayout={onLayoutRootView}
-        >
-          <NavigationContainer>
-            <ToastProvider>
-              <AuthProvider>
-                <StatusBar style="light" backgroundColor={colors.bg} />
-                <RootNavigator />
-              </AuthProvider>
-            </ToastProvider>
-          </NavigationContainer>
-        </View>
-      </SafeAreaProvider>
+      <ClerkProvider
+        publishableKey={clerkPublishableKey || ""}
+        tokenCache={tokenCache}
+      >
+        <SafeAreaProvider>
+          <View
+            style={{ flex: 1, backgroundColor: colors.bg }}
+            onLayout={onLayoutRootView}
+          >
+            <NavigationContainer>
+              <ToastProvider>
+                <AuthProvider>
+                  <StatusBar style="light" backgroundColor={colors.bg} />
+                  <RootNavigator />
+                </AuthProvider>
+              </ToastProvider>
+            </NavigationContainer>
+          </View>
+        </SafeAreaProvider>
+      </ClerkProvider>
     </GestureHandlerRootView>
   );
 }

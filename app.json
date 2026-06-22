@@ -36,6 +36,7 @@
         }
       ],
       "expo-web-browser",
+      "@clerk/expo",
       "expo-font"
     ],
     "experiments": {
